@@ -36,4 +36,23 @@ class UserModel {
       dateCreated: map['date_created'],
     );
   }
+
+  /// ✅ Add this:
+  UserModel copyWith({
+    int? userId,
+    String? email,
+    String? username,
+    String? password,
+    int? goalMinutes,
+    String? dateCreated,
+  }) {
+    return UserModel(
+      userId: userId ?? this.userId,
+      email: email ?? this.email,
+      username: username ?? this.username,
+      password: password ?? this.password,
+      goalMinutes: goalMinutes ?? this.goalMinutes,
+      dateCreated: dateCreated ?? this.dateCreated,
+    );
+  }
 }

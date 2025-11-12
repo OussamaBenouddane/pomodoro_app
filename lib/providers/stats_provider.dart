@@ -1,195 +1,135 @@
+import 'dart:async';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:lockin_app/db/db.dart';
 import 'package:lockin_app/model/day_stat_model.dart';
-import 'package:lockin_app/model/week_stat_model.dart';
 import 'package:lockin_app/model/hour_stat_model.dart';
+import 'package:lockin_app/model/week_stat_model.dart';
+import 'package:lockin_app/providers/user_provider.dart';
+import 'package:lockin_app/repositories/stats_repository.dart';
 
-class StatsRepository {
-  final DBHelper dbHelper;
+final statsRepositoryProvider = Provider<StatsRepository>((ref) {
+  return StatsRepository(DBHelper());
+});
 
-  StatsRepository(this.dbHelper);
+final currentMonthProvider = StateProvider<DateTime>((ref) {
+  return DateTime.now(); // default to current month
+});
 
-  // ==================== DAY STATS ====================
-  
-  Future<DayStatModel?> getDayStats(int userId, String date) async {
-    final result = await dbHelper.readDataWithArgs(
-      'SELECT * FROM day_stats WHERE user_id = ? AND date = ? LIMIT 1',
-      [userId, date],
-    );
-    
-    if (result.isEmpty) return null;
-    return DayStatModel.fromMap(result.first);
+final statsControllerProvider =
+    AsyncNotifierProvider<StatsController, StatsState>(StatsController.new);
+
+class StatsController extends AsyncNotifier<StatsState> {
+  late final StatsRepository _repo;
+
+  @override
+  FutureOr<StatsState> build() async {
+    _repo = ref.read(statsRepositoryProvider);
+    // you could optionally store current userId in a userProvider
+    const userId = 1;
+    return await _loadStats(userId);
   }
 
-  Future<void> upsertDayStats(DayStatModel stats) async {
-    await dbHelper.insertData('day_stats', stats.toMap());
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    const userId = 1;
+    state = AsyncData(await _loadStats(userId));
   }
 
-  Future<List<DayStatModel>> getStatsInRange(
-    int userId,
-    String startDate,
-    String endDate,
-  ) async {
-    final result = await dbHelper.readDataWithArgs(
-      'SELECT * FROM day_stats WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date ASC',
-      [userId, startDate, endDate],
-    );
-    
-    return result.map((map) => DayStatModel.fromMap(map)).toList();
-  }
+  Future<StatsState> _loadStats(int userId) async {
+    final today = DateTime.now().toIso8601String().split('T').first;
 
-  Future<int> getTotalLifetimeFocus(int userId) async {
-    final result = await dbHelper.readDataWithArgs(
-      'SELECT COALESCE(SUM(total_focus_minutes), 0) as total FROM day_stats WHERE user_id = ?',
-      [userId],
-    );
-    
-    if (result.isEmpty) return 0;
-    return result.first['total'] as int? ?? 0;
-  }
+    final todayStats = await _repo.getDayStats(userId, today);
+    final hourlyStats = await _repo.getHourlyStats(userId, today);
+    final recentWeeks = await _repo.getRecentWeeks(userId, 4);
+    final mostProductiveHour = await _repo.getMostProductiveHour(userId) ?? -1;
 
-  // ==================== WEEK STATS ====================
-  
-  Future<WeekStatModel?> getWeekStats(int userId, String weekStart) async {
-    final result = await dbHelper.readDataWithArgs(
-      'SELECT * FROM week_stats WHERE user_id = ? AND week_start = ? LIMIT 1',
-      [userId, weekStart],
-    );
-    
-    if (result.isEmpty) return null;
-    return WeekStatModel.fromMap(result.first);
-  }
+    // Category breakdown for the current month
+    final now = DateTime.now();
+    final start = DateTime(
+      now.year,
+      now.month,
+      1,
+    ).toIso8601String().split('T').first;
+    final end = DateTime(
+      now.year,
+      now.month + 1,
+      0,
+    ).toIso8601String().split('T').first;
 
-  Future<void> upsertWeekStats(WeekStatModel stats) async {
-    await dbHelper.insertData('week_stats', stats.toMap());
-  }
-
-  Future<List<WeekStatModel>> getRecentWeeks(int userId, int count) async {
-    final result = await dbHelper.readDataWithArgs(
-      'SELECT * FROM week_stats WHERE user_id = ? ORDER BY week_start DESC LIMIT ?',
-      [userId, count],
-    );
-    
-    return result.map((map) => WeekStatModel.fromMap(map)).toList();
-  }
-
-  // ==================== HOUR STATS ====================
-  
-  Future<List<HourStatModel>> getHourlyStats(int userId, String date) async {
-    final result = await dbHelper.readDataWithArgs(
-      'SELECT * FROM hour_stats WHERE user_id = ? AND date = ? ORDER BY hour ASC',
-      [userId, date],
-    );
-    
-    return result.map((map) => HourStatModel.fromMap(map)).toList();
-  }
-
-  Future<void> upsertHourStats(HourStatModel stats) async {
-    await dbHelper.insertData('hour_stats', stats.toMap());
-  }
-
-  /// Get the most productive hour of the day (across all time)
-  Future<int?> getMostProductiveHour(int userId) async {
-    final result = await dbHelper.readDataWithArgs('''
-      SELECT hour, SUM(focus_minutes) as total
-      FROM hour_stats
-      WHERE user_id = ?
-      GROUP BY hour
-      ORDER BY total DESC
-      LIMIT 1
-    ''', [userId]);
-    
-    if (result.isEmpty) return null;
-    return result.first['hour'] as int;
-  }
-
-  // ==================== AGGREGATION HELPERS ====================
-  
-  /// Calculate and update day stats from sessions
-  Future<void> recalculateDayStats(int userId, String date) async {
-    // Sum all focus minutes for this day
-    final result = await dbHelper.readDataWithArgs('''
-      SELECT COALESCE(SUM(focus_minutes), 0) as total
-      FROM sessions
-      WHERE user_id = ? AND date = ?
-    ''', [userId, date]);
-    
-    final total = result.first['total'] as int? ?? 0;
-    
-    final dayStats = DayStatModel(
-      userId: userId,
-      date: date,
-      totalFocusMinutes: total,
-      lastUpdated: DateTime.now().millisecondsSinceEpoch,
-    );
-    
-    await upsertDayStats(dayStats);
-  }
-
-  /// Calculate and update week stats from sessions
-  Future<void> recalculateWeekStats(int userId, String weekStart) async {
-    // Calculate week end (6 days after start)
-    final startDate = DateTime.parse(weekStart);
-    final endDate = startDate.add(const Duration(days: 6));
-    final weekEnd = endDate.toIso8601String().split('T').first;
-    
-    // Get all sessions in this week
-    final result = await dbHelper.readDataWithArgs('''
-      SELECT 
-        COALESCE(SUM(focus_minutes), 0) as total,
-        COALESCE(AVG(focus_minutes), 0.0) as average,
-        COUNT(*) as count
+    final result = await _repo.dbHelper.readDataWithArgs(
+      '''
+      SELECT category, SUM(focus_minutes) as total
       FROM sessions
       WHERE user_id = ? AND date >= ? AND date <= ?
-    ''', [userId, weekStart, weekEnd]);
-    
-    final data = result.first;
-    final total = data['total'] as int? ?? 0;
-    final average = (data['average'] as num?)?.toDouble() ?? 0.0;
-    final count = data['count'] as int? ?? 0;
-    
-    final weekStats = WeekStatModel(
-      userId: userId,
-      weekStart: weekStart,
-      weekEnd: weekEnd,
-      totalFocusMinutes: total,
-      averageSessionLength: average,
-      sessionsCount: count,
-      lastUpdated: DateTime.now().millisecondsSinceEpoch,
+      GROUP BY category
+    ''',
+      [userId, start, end],
     );
-    
-    await upsertWeekStats(weekStats);
+
+    final total = result.fold<int>(
+      0,
+      (sum, r) => sum + (r['total'] as int? ?? 0),
+    );
+    final categoryBreakdown = {
+      for (final row in result)
+        row['category'] as String:
+            (row['total'] as int) / (total == 0 ? 1 : total),
+    };
+
+    return StatsState(
+      todayStats: todayStats,
+      hourlyStats: hourlyStats,
+      recentWeeks: recentWeeks,
+      categoryBreakdown: categoryBreakdown,
+      mostProductiveHour: mostProductiveHour,
+    );
   }
 
-  /// Calculate hour stats from sessions
-  Future<void> recalculateHourStats(int userId, String date) async {
-    // Get all sessions for this date
-    final sessions = await dbHelper.readDataWithArgs(
-      'SELECT * FROM sessions WHERE user_id = ? AND date = ?',
-      [userId, date],
-    );
-    
-    // Group by hour and sum focus minutes
-    final hourMap = <int, int>{};
-    
-    for (final session in sessions) {
-      final startTime = DateTime.parse(session['start_time'] as String);
-      final hour = startTime.hour;
-      final minutes = session['focus_minutes'] as int;
-      
-      hourMap[hour] = (hourMap[hour] ?? 0) + minutes;
+  void changeMonth(WidgetRef ref, bool forward) {
+    final userAsync = ref.read(currentUserProvider);
+    if (userAsync.value == null) return;
+
+    final user = userAsync.value!;
+    // Parse the string date
+    final creationDate = DateTime.tryParse(user.dateCreated) ?? DateTime.now();
+    final creationMonth = DateTime(creationDate.year, creationDate.month);
+    final now = DateTime.now();
+    final currentMonth = ref.read(currentMonthProvider);
+
+    DateTime nextMonth;
+
+    if (forward) {
+      nextMonth = DateTime(currentMonth.year, currentMonth.month + 1);
+    } else {
+      nextMonth = DateTime(currentMonth.year, currentMonth.month - 1);
     }
-    
-    // Insert/update hour stats
-    for (final entry in hourMap.entries) {
-      final hourStats = HourStatModel(
-        userId: userId,
-        date: date,
-        hour: entry.key,
-        focusMinutes: entry.value,
-        lastUpdated: DateTime.now().millisecondsSinceEpoch,
-      );
-      
-      await upsertHourStats(hourStats);
+
+    // Prevent going before creation month or after current month
+    if (nextMonth.isBefore(creationMonth)) {
+      return;
     }
+    if (nextMonth.isAfter(DateTime(now.year, now.month))) {
+      return;
+    }
+
+    // Safe to change
+    ref.read(currentMonthProvider.notifier).state = nextMonth;
   }
+}
+
+class StatsState {
+  final DayStatModel? todayStats;
+  final List<HourStatModel> hourlyStats;
+  final List<WeekStatModel> recentWeeks;
+  final Map<String, double> categoryBreakdown;
+  final int mostProductiveHour;
+
+  const StatsState({
+    this.todayStats,
+    this.hourlyStats = const [],
+    this.recentWeeks = const [],
+    this.categoryBreakdown = const {},
+    this.mostProductiveHour = -1,
+  });
 }

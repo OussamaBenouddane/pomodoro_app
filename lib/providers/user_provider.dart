@@ -1,67 +1,113 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/db/db.dart';
 import 'package:lockin_app/model/user_model.dart';
+import 'package:lockin_app/providers/shared_prefs_provider.dart';
 import 'package:lockin_app/repositories/user_repository.dart';
+import 'package:lockin_app/repositories/user_session_repository.dart';
 
-/// Provides the DBHelper singleton
+/// Provides DBHelper
 final dbHelperProvider = Provider<DBHelper>((ref) => DBHelper());
 
-/// Provides the UserRepository instance
+/// Provides UserRepository
 final userRepositoryProvider = Provider<UserRepository>((ref) {
-  final dbHelper = ref.watch(dbHelperProvider);
-  return UserRepository(dbHelper);
+  final db = ref.watch(dbHelperProvider);
+  return UserRepository(db);
 });
 
-/// Manages the current logged-in user (Riverpod 3.x Notifier)
-class CurrentUserNotifier extends Notifier<UserModel?> {
+/// Provides session repository
+final sessionRepositoryProvider = Provider<UserSessionRepository>(
+  (ref) {
+    final prefsAsync = ref.watch(sharedPrefsProvider);
+    return prefsAsync.when(
+      data: (prefs) => UserSessionRepository(prefs),
+      loading: () => UserSessionRepository(),
+      error: (_, __) => UserSessionRepository(),
+    );
+  },
+);
+
+/// Notifier to manage current user & persistence
+class CurrentUserNotifier extends AsyncNotifier<UserModel?> {
   late final UserRepository _userRepository;
+  late final UserSessionRepository _sessionRepository;
 
   @override
-  UserModel? build() {
-    // Access repository from ref when Notifier is built
+  Future<UserModel?> build() async {
     _userRepository = ref.read(userRepositoryProvider);
-    return null; // initial state
+    _sessionRepository = ref.read(sessionRepositoryProvider);
+
+    // On app start, try to restore the user session
+    final userId = await _sessionRepository.getLoggedInUserId();
+    if (userId != null) {
+      return await _userRepository.getUserById(userId);
+    }
+    return null;
   }
 
-  Future<void> login(String email, String password) async {
-    final user = await _userRepository.getUserByEmail(email);
-    if (user != null && user.password == password) {
-      state = user;
-    } else {
-      throw Exception('Invalid credentials');
+  Future<bool> login(String email, String password) async {
+    state = const AsyncLoading();
+    
+    try {
+      final user = await _userRepository.getUserByEmail(email);
+
+      if (user == null) {
+        state = const AsyncData(null);
+        return false;
+      }
+
+      if (user.password != password) {
+        state = const AsyncData(null);
+        return false;
+      }
+
+      await _sessionRepository.saveLoggedInUserId(user.userId!);
+      state = AsyncData(user);
+      return true;
+    } catch (e) {
+      state = const AsyncData(null);
+      return false;
     }
   }
 
-  Future<void> register(UserModel user) async {
-    await _userRepository.insertUser(user);
-    state = user;
+  Future<bool> register(UserModel user) async {
+    state = const AsyncLoading();
+    
+    try {
+      // Check if user already exists
+      final existingUser = await _userRepository.getUserByEmail(user.email);
+      if (existingUser != null) {
+        state = const AsyncData(null);
+        return false;
+      }
+
+      final id = await _userRepository.insertUser(user);
+      final newUser = user.copyWith(userId: id);
+      await _sessionRepository.saveLoggedInUserId(id);
+      state = AsyncData(newUser);
+      return true;
+    } catch (e) {
+      state = const AsyncData(null);
+      return false;
+    }
   }
 
-  void logout() {
-    state = null;
+  Future<void> logout() async {
+    await _sessionRepository.clearSession();
+    state = const AsyncData(null);
   }
 
   Future<void> updateGoal(int newGoalMinutes) async {
-    if (state == null) return;
-    final updatedUser = UserModel(
-      userId: state!.userId,
-      email: state!.email,
-      username: state!.username,
-      password: state!.password,
-      goalMinutes: newGoalMinutes,
-      dateCreated: state!.dateCreated,
-    );
-    await _userRepository.updateUser(updatedUser);
-    state = updatedUser;
+    final current = state.asData?.value;
+    if (current == null) return;
+
+    final updated = current.copyWith(goalMinutes: newGoalMinutes);
+    await _userRepository.updateUser(updated);
+    state = AsyncData(updated);
   }
 }
 
-/// Exposes the current logged-in user
+/// Global provider
 final currentUserProvider =
-    NotifierProvider<CurrentUserNotifier, UserModel?>(CurrentUserNotifier.new);
-
-/// Derived provider for goal_minutes
-final userGoalProvider = Provider<int?>((ref) {
-  final user = ref.watch(currentUserProvider);
-  return user?.goalMinutes;
-});
+    AsyncNotifierProvider<CurrentUserNotifier, UserModel?>(
+      CurrentUserNotifier.new,
+    );

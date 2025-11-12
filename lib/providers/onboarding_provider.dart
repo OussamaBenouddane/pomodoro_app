@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:lockin_app/providers/shared_prefs_provider.dart';
 import 'package:lockin_app/repositories/onboarding_repository.dart';
 
@@ -12,6 +13,12 @@ final onboardingRepoProvider = Provider<OnboardingRepository>((ref) {
   );
 });
 
+/// State provider to track onboarding completion
+/// This provider is now the source of truth for onboarding status
+final hasSeenOnboardingProvider = StateProvider<bool>((ref) {
+  final repo = ref.watch(onboardingRepoProvider);
+  return repo.hasSeenOnboarding;
+});
 
 class OnboardingController extends Notifier<int> {
   late final PageController pageController;
@@ -38,7 +45,13 @@ class OnboardingController extends Notifier<int> {
 
   Future<void> completeOnboarding() async {
     await repo.setSeen();
+    // Update the state provider to trigger router rebuild
+    ref.read(hasSeenOnboardingProvider.notifier).state = true;
+    // Force a small delay to ensure state propagates
+    await Future.delayed(const Duration(milliseconds: 100));
   }
+
+ 
 }
 
 final onboardingControllerProvider = NotifierProvider<OnboardingController, int>(

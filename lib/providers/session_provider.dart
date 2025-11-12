@@ -45,10 +45,10 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
   Future<void> startSession(SessionModel session) async {
     try {
       await _sessionRepo.insertSession(session);
-      
+
       // Recalculate stats for the session date
       await _recalculateStatsForDate(session.userId, session.date);
-      
+
       if (_userId != null) await loadUserSessions(_userId!);
     } catch (e, stack) {
       state = AsyncError(e, stack);
@@ -60,15 +60,13 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       // Get the session from database before deleting to know which date to recalculate
       if (_userId != null) {
         final allSessions = await _sessionRepo.getSessionsByUser(_userId!);
-        final session = allSessions.firstWhere(
-          (s) => s.sessionId == sessionId,
-        );
-        
+        final session = allSessions.firstWhere((s) => s.sessionId == sessionId);
+
         await _sessionRepo.deleteSession(sessionId);
-        
+
         // Recalculate stats for that date
         await _recalculateStatsForDate(session.userId, session.date);
-        
+
         await loadUserSessions(_userId!);
       }
     } catch (e, stack) {
@@ -82,13 +80,14 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
 
   /// When session timer finishes → insert new record and update stats
   Future<void> saveFinishedSession(SessionTimerState completedTimer) async {
-    final user = ref.read(currentUserProvider);
-    if (user == null) return;
+    final user = ref.read(currentUserProvider).value; // ✅ get inner UserModel
+
+    if (user == null || user.userId == null) return; // ✅ guard against null
 
     try {
       final now = DateTime.now();
       final date = now.toIso8601String().split('T').first;
-      
+
       final session = SessionModel(
         userId: user.userId!,
         title: completedTimer.title ?? 'Focus Session',
@@ -101,10 +100,10 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       );
 
       await _sessionRepo.insertSession(session);
-      
+
       // Recalculate all stats for today
       await _recalculateStatsForDate(user.userId!, date);
-      
+
       if (_userId != null) await loadUserSessions(_userId!);
     } catch (e, stack) {
       state = AsyncError(e, stack);
@@ -115,10 +114,10 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
   Future<void> _recalculateStatsForDate(int userId, String date) async {
     // Recalculate day stats
     await _statsRepo.recalculateDayStats(userId, date);
-    
+
     // Recalculate hour stats
     await _statsRepo.recalculateHourStats(userId, date);
-    
+
     // Recalculate week stats (get the week start for this date)
     final dateTime = DateTime.parse(date);
     final weekStart = dateTime.subtract(Duration(days: dateTime.weekday - 1));
@@ -130,8 +129,8 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
 /// Provider for session list
 final sessionProvider =
     AsyncNotifierProvider<SessionNotifier, List<SessionModel>>(
-  SessionNotifier.new,
-);
+      SessionNotifier.new,
+    );
 
 /// User streak provider
 final streakProvider = FutureProvider.family<int, int>((ref, userId) async {
@@ -142,17 +141,17 @@ final streakProvider = FutureProvider.family<int, int>((ref, userId) async {
 /// Total focus for a given date
 final totalFocusByDateProvider =
     FutureProvider.family<int, Map<String, dynamic>>((ref, data) async {
-  final repo = ref.watch(sessionRepositoryProvider);
-  final userId = data['userId'] as int;
-  final date = data['date'] as String;
-  return await repo.getTotalFocusByDate(userId, date);
-});
+      final repo = ref.watch(sessionRepositoryProvider);
+      final userId = data['userId'] as int;
+      final date = data['date'] as String;
+      return await repo.getTotalFocusByDate(userId, date);
+    });
 
 /// Listener that saves session when timer finishes
 final sessionSaveListenerProvider = Provider<void>((ref) {
   ref.listen(sessionTimerProvider, (previous, next) {
     // Only trigger when transitioning TO finished state
-    if (previous?.phase != SessionPhase.finished && 
+    if (previous?.phase != SessionPhase.finished &&
         next.phase == SessionPhase.finished) {
       // Use a microtask to avoid modifying state during build
       Future.microtask(() {

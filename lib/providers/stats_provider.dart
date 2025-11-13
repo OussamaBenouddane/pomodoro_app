@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:lockin_app/db/db.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:lockin_app/model/day_stat_model.dart';
 import 'package:lockin_app/model/hour_stat_model.dart';
 import 'package:lockin_app/model/week_stat_model.dart';
@@ -25,37 +25,98 @@ class StatsController extends AsyncNotifier<StatsState> {
   @override
   FutureOr<StatsState> build() async {
     _repo = ref.read(statsRepositoryProvider);
-    // you could optionally store current userId in a userProvider
-    const userId = 1;
-    return await _loadStats(userId);
+    
+    // Get actual user ID
+    final userAsync = ref.read(currentUserProvider);
+    if (userAsync.value == null) {
+      return const StatsState();
+    }
+    final userId = userAsync.value!.userId!;
+    
+    return await _loadInitialStats(userId);
   }
 
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    const userId = 1;
-    state = AsyncData(await _loadStats(userId));
-  }
-
-  Future<StatsState> _loadStats(int userId) async {
+  // Initial load (today, current week, etc.)
+  Future<StatsState> _loadInitialStats(int userId) async {
     final today = DateTime.now().toIso8601String().split('T').first;
-
     final todayStats = await _repo.getDayStats(userId, today);
     final hourlyStats = await _repo.getHourlyStats(userId, today);
-    final recentWeeks = await _repo.getRecentWeeks(userId, 4);
     final mostProductiveHour = await _repo.getMostProductiveHour(userId) ?? -1;
 
-    // Category breakdown for the current month
+    // Load current week
     final now = DateTime.now();
-    final start = DateTime(
-      now.year,
-      now.month,
-      1,
-    ).toIso8601String().split('T').first;
-    final end = DateTime(
-      now.year,
-      now.month + 1,
-      0,
-    ).toIso8601String().split('T').first;
+    final currentWeekStart = now.subtract(Duration(days: now.weekday - 1));
+    final weekStartStr = currentWeekStart.toIso8601String().split('T').first;
+
+    final currentWeek = await _repo.getWeekStats(userId, weekStartStr);
+
+    final categoryBreakdown =
+        await _getCategoryBreakdownForWeek(userId, currentWeek);
+
+    // Cache starts with the current week only
+    final cache = {
+      if (currentWeek != null) weekStartStr: currentWeek,
+    };
+
+    return StatsState(
+      todayStats: todayStats,
+      hourlyStats: hourlyStats,
+      cachedWeeks: cache,
+      currentWeek: currentWeek,
+      categoryBreakdown: categoryBreakdown,
+      mostProductiveHour: mostProductiveHour,
+    );
+  }
+
+  // Load a specific week, using cache if possible
+  Future<void> loadWeek(String weekStart) async {
+    final userAsync = ref.read(currentUserProvider);
+    if (userAsync.value == null) return;
+    final userId = userAsync.value!.userId!;
+
+    final currentState = state.asData?.value;
+    if (currentState == null) return;
+
+    // If cached, just switch to it
+    if (currentState.cachedWeeks.containsKey(weekStart)) {
+      final week = currentState.cachedWeeks[weekStart];
+      final breakdown = await _getCategoryBreakdownForWeek(userId, week);
+      state = AsyncData(currentState.copyWith(
+        currentWeek: week,
+        categoryBreakdown: breakdown,
+      ));
+      return;
+    }
+
+    // Not cached → fetch from DB
+    final week = await _repo.getWeekStats(userId, weekStart);
+    if (week == null) return;
+
+    final updatedCache = Map<String, WeekStatModel>.from(
+      currentState.cachedWeeks,
+    );
+    updatedCache[weekStart] = week;
+
+    // Prune old weeks if cache > 5
+    if (updatedCache.length > 5) {
+      final sortedKeys = updatedCache.keys.toList()..sort();
+      updatedCache.remove(sortedKeys.first);
+    }
+
+    final breakdown = await _getCategoryBreakdownForWeek(userId, week);
+
+    state = AsyncData(currentState.copyWith(
+      cachedWeeks: updatedCache,
+      currentWeek: week,
+      categoryBreakdown: breakdown,
+    ));
+  }
+
+  Future<Map<String, double>> _getCategoryBreakdownForWeek(
+    int userId,
+    WeekStatModel? week,
+  ) async {
+    if (week == null) return {};
 
     final result = await _repo.dbHelper.readDataWithArgs(
       '''
@@ -63,35 +124,27 @@ class StatsController extends AsyncNotifier<StatsState> {
       FROM sessions
       WHERE user_id = ? AND date >= ? AND date <= ?
       GROUP BY category
-    ''',
-      [userId, start, end],
+      ''',
+      [userId, week.weekStart, week.weekEnd],
     );
 
     final total = result.fold<int>(
       0,
       (sum, r) => sum + (r['total'] as int? ?? 0),
     );
-    final categoryBreakdown = {
+    return {
       for (final row in result)
         row['category'] as String:
             (row['total'] as int) / (total == 0 ? 1 : total),
     };
-
-    return StatsState(
-      todayStats: todayStats,
-      hourlyStats: hourlyStats,
-      recentWeeks: recentWeeks,
-      categoryBreakdown: categoryBreakdown,
-      mostProductiveHour: mostProductiveHour,
-    );
   }
 
+  // Allow controlled month navigation (no past creation or future months)
   void changeMonth(WidgetRef ref, bool forward) {
     final userAsync = ref.read(currentUserProvider);
     if (userAsync.value == null) return;
 
     final user = userAsync.value!;
-    // Parse the string date
     final creationDate = DateTime.tryParse(user.dateCreated) ?? DateTime.now();
     final creationMonth = DateTime(creationDate.year, creationDate.month);
     final now = DateTime.now();
@@ -105,15 +158,11 @@ class StatsController extends AsyncNotifier<StatsState> {
       nextMonth = DateTime(currentMonth.year, currentMonth.month - 1);
     }
 
-    // Prevent going before creation month or after current month
-    if (nextMonth.isBefore(creationMonth)) {
-      return;
-    }
-    if (nextMonth.isAfter(DateTime(now.year, now.month))) {
+    if (nextMonth.isBefore(creationMonth) ||
+        nextMonth.isAfter(DateTime(now.year, now.month))) {
       return;
     }
 
-    // Safe to change
     ref.read(currentMonthProvider.notifier).state = nextMonth;
   }
 }
@@ -121,15 +170,35 @@ class StatsController extends AsyncNotifier<StatsState> {
 class StatsState {
   final DayStatModel? todayStats;
   final List<HourStatModel> hourlyStats;
-  final List<WeekStatModel> recentWeeks;
+  final Map<String, WeekStatModel> cachedWeeks;
+  final WeekStatModel? currentWeek;
   final Map<String, double> categoryBreakdown;
   final int mostProductiveHour;
 
   const StatsState({
     this.todayStats,
     this.hourlyStats = const [],
-    this.recentWeeks = const [],
+    this.cachedWeeks = const {},
+    this.currentWeek,
     this.categoryBreakdown = const {},
     this.mostProductiveHour = -1,
   });
+
+  StatsState copyWith({
+    DayStatModel? todayStats,
+    List<HourStatModel>? hourlyStats,
+    Map<String, WeekStatModel>? cachedWeeks,
+    WeekStatModel? currentWeek,
+    Map<String, double>? categoryBreakdown,
+    int? mostProductiveHour,
+  }) {
+    return StatsState(
+      todayStats: todayStats ?? this.todayStats,
+      hourlyStats: hourlyStats ?? this.hourlyStats,
+      cachedWeeks: cachedWeeks ?? this.cachedWeeks,
+      currentWeek: currentWeek ?? this.currentWeek,
+      categoryBreakdown: categoryBreakdown ?? this.categoryBreakdown,
+      mostProductiveHour: mostProductiveHour ?? this.mostProductiveHour,
+    );
+  }
 }

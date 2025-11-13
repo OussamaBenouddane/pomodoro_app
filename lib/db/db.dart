@@ -1,5 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
 class DBHelper {
   static Database? _db;
@@ -24,7 +26,7 @@ class DBHelper {
     );
   }
 
-  /// Create tables
+  /// Create tables and insert dummy data
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE users (
@@ -95,6 +97,62 @@ class DBHelper {
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
       )
     ''');
+
+    // Insert dummy data
+    await _insertDummyData(db);
+  }
+
+  /// Insert dummy data from JSON file
+  Future<void> _insertDummyData(Database db) async {
+    try {
+      // Load the JSON file from assets
+      final String jsonString = await rootBundle.loadString('assets/dummy.json');
+      final Map<String, dynamic> data = json.decode(jsonString);
+
+      // Insert users
+      if (data['users'] != null) {
+        for (var user in data['users']) {
+          await db.insert('users', user);
+        }
+        print('✅ Inserted ${data['users'].length} users');
+      }
+
+      // Insert sessions
+      if (data['sessions'] != null) {
+        for (var session in data['sessions']) {
+          await db.insert('sessions', session);
+        }
+        print('✅ Inserted ${data['sessions'].length} sessions');
+      }
+
+      // Insert hour_stats
+      if (data['hour_stats'] != null) {
+        for (var stat in data['hour_stats']) {
+          await db.insert('hour_stats', stat);
+        }
+        print('✅ Inserted ${data['hour_stats'].length} hour stats');
+      }
+
+      // Insert day_stats
+      if (data['day_stats'] != null) {
+        for (var stat in data['day_stats']) {
+          await db.insert('day_stats', stat);
+        }
+        print('✅ Inserted ${data['day_stats'].length} day stats');
+      }
+
+      // Insert week_stats
+      if (data['week_stats'] != null) {
+        for (var stat in data['week_stats']) {
+          await db.insert('week_stats', stat);
+        }
+        print('✅ Inserted ${data['week_stats'].length} week stats');
+      }
+
+      print('🎉 Dummy data inserted successfully!');
+    } catch (e) {
+      print('❌ Error inserting dummy data: $e');
+    }
   }
 
   /// Handle database upgrades

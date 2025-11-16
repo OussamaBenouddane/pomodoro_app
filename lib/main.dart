@@ -2,17 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/providers/shared_prefs_provider.dart';
 import 'package:lockin_app/routes/app_routes.dart';
+import 'package:lockin_app/services/notification_services.dart';
+import 'package:lockin_app/services/timer_background_service.dart';
+import 'package:lockin_app/services/timer_service_manager.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'providers/session_provider.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize services BEFORE running the app
+  print('🔧 Initializing services...');
+  await TimerBackgroundService.initialize();
+  await NotificationService.initialize();
+  tz.initializeTimeZones();
+  print('✅ Services initialized');
+  
   runApp(const ProviderScope(child: LockInApp()));
 }
 
-class LockInApp extends ConsumerWidget {
+class LockInApp extends ConsumerStatefulWidget {
   const LockInApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LockInApp> createState() => _LockInAppState();
+}
+
+class _LockInAppState extends ConsumerState<LockInApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize timer service manager after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('🎧 Initializing TimerServiceManager...');
+      TimerServiceManager.initialize(ref);
+      print('✅ TimerServiceManager initialized');
+    });
+  }
+
+  @override
+  void dispose() {
+    TimerServiceManager.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final prefsAsync = ref.watch(sharedPrefsProvider);
     ref.read(sessionSaveListenerProvider);
 
@@ -28,9 +63,7 @@ class LockInApp extends ConsumerWidget {
         );
       },
       loading: () => const MaterialApp(
-        home: Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        ),
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
       error: (e, _) => MaterialApp(
         home: Scaffold(

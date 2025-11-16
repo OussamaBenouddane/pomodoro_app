@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lockin_app/model/session_timer_model.dart';
 import 'package:lockin_app/providers/session_timer_provider.dart';
 import 'package:lockin_app/providers/session_provider.dart';
+
+// Import your debug widget if you created it
+// import 'package:lockin_app/screens/session/debug_timer_status.dart';
 
 class FocusPage extends ConsumerWidget {
   const FocusPage({super.key});
@@ -15,8 +19,8 @@ class FocusPage extends ConsumerWidget {
   }
 
   Color _getPhaseColor(SessionPhase phase) {
-    return phase == SessionPhase.focusing 
-        ? Colors.deepOrangeAccent 
+    return phase == SessionPhase.focusing
+        ? Colors.deepOrangeAccent
         : Colors.teal;
   }
 
@@ -35,11 +39,11 @@ class FocusPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final timerState = ref.watch(sessionTimerProvider);
     final timer = ref.read(sessionTimerProvider.notifier);
-    
+
     final color = _getPhaseColor(timerState.phase);
 
     return Scaffold(
-      backgroundColor: color.withOpacity(0.08),
+      backgroundColor: color.withValues(alpha: 0.08),
       appBar: AppBar(
         title: Text(_getPhaseTitle(timerState.phase)),
         backgroundColor: color,
@@ -54,13 +58,25 @@ class FocusPage extends ConsumerWidget {
             ),
         ],
       ),
-      body: Center(
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 600),
-          transitionBuilder: (child, anim) =>
-              ScaleTransition(scale: anim, child: child),
-          child: _buildPhaseContent(context, ref, timerState, timer, color),
-        ),
+      body: Stack(
+        children: [
+          Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: _buildPhaseContent(context, ref, timerState, timer, color),
+            ),
+          ),
+          // Add debug widget here if needed (only in debug mode)
+          // if (kDebugMode)
+          //   Positioned(
+          //     top: 80,
+          //     left: 0,
+          //     right: 0,
+          //     child: const DebugTimerStatus(),
+          //   ),
+        ],
       ),
     );
   }
@@ -98,10 +114,10 @@ class FocusPage extends ConsumerWidget {
 
   Widget _buildTimerDisplay(SessionTimerState state, Color color) {
     final isFocus = state.phase == SessionPhase.focusing;
-    final totalDuration = isFocus 
-        ? state.focusDuration.inSeconds 
+    final totalDuration = isFocus
+        ? state.focusDuration.inSeconds
         : state.breakDuration.inSeconds;
-    
+
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -109,7 +125,9 @@ class FocusPage extends ConsumerWidget {
           width: 220,
           height: 220,
           child: CircularProgressIndicator(
-            value: state.remaining.inSeconds / totalDuration,
+            value: totalDuration > 0 
+                ? state.remaining.inSeconds / totalDuration 
+                : 0,
             strokeWidth: 12,
             backgroundColor: Colors.grey.shade300,
             color: color,
@@ -117,10 +135,7 @@ class FocusPage extends ConsumerWidget {
         ),
         Text(
           _formatTime(state.remaining),
-          style: const TextStyle(
-            fontSize: 48,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -149,24 +164,49 @@ class FocusPage extends ConsumerWidget {
       );
     }
 
-    // For focusing and onBreak phases
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    // For focusing and onBreak phases - REMOVED DebugServiceWidget from Row
+    return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          icon: Icon(
-            state.isPaused ? Icons.play_circle_fill : Icons.pause_circle_filled,
-            size: 64,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: Icon(
+                state.isPaused ? Icons.play_circle_fill : Icons.pause_circle_filled,
+                size: 64,
+              ),
+              color: Colors.blue,
+              onPressed: state.isPaused ? timer.resume : timer.pause,
+            ),
+            const SizedBox(width: 40),
+            IconButton(
+              icon: const Icon(Icons.stop_circle_outlined, size: 54),
+              color: Colors.redAccent,
+              onPressed: () => _confirmStop(context, ref, timer),
+            ),
+          ],
+        ),
+        // Optional: Show timer state in debug mode
+        if (kDebugMode)
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '${state.phase.name} | ${state.remaining.inSeconds}s | ${state.isPaused ? "PAUSED" : "RUNNING"}',
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
           ),
-          color: Colors.blue,
-          onPressed: state.isPaused ? timer.resume : timer.pause,
-        ),
-        const SizedBox(width: 40),
-        IconButton(
-          icon: const Icon(Icons.stop_circle_outlined, size: 54),
-          color: Colors.redAccent,
-          onPressed: () => _confirmStop(context, ref, timer),
-        ),
       ],
     );
   }
@@ -181,18 +221,11 @@ class FocusPage extends ConsumerWidget {
       key: const ValueKey('finished'),
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(
-          Icons.check_circle_outline,
-          size: 80,
-          color: Colors.green,
-        ),
+        const Icon(Icons.check_circle_outline, size: 80, color: Colors.green),
         const SizedBox(height: 24),
         const Text(
           'Great work! 🎉',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         const Text(
@@ -245,7 +278,6 @@ class FocusPage extends ConsumerWidget {
   ) {
     final focusTime = timer.getActualFocusTime();
     timer.stopSession();
-    // Navigate with the duration in seconds as a path parameter
     context.go('/finished/${focusTime.inSeconds}');
   }
 
@@ -279,7 +311,6 @@ class FocusPage extends ConsumerWidget {
               final focusTime = timer.getActualFocusTime();
               timer.stopSession();
               if (context.mounted) {
-                // Navigate with the duration in seconds as a path parameter
                 context.go('/finished/${focusTime.inSeconds}');
               }
             },

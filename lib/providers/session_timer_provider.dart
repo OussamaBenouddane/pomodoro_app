@@ -1,15 +1,12 @@
-import 'dart:async';
+// providers/session_timer_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/model/session_timer_model.dart';
+import 'package:lockin_app/services/timer_service_manager.dart';
 
+/// This provider now acts as a state holder that syncs with the background service
 class SessionTimerNotifier extends Notifier<SessionTimerState> {
-  Timer? _timer;
-
   @override
   SessionTimerState build() {
-    ref.onDispose(() {
-      _timer?.cancel();
-    });
     return const SessionTimerState();
   }
 
@@ -19,7 +16,7 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
     required int focusMinutes,
     required int breakMinutes,
   }) {
-    _timer?.cancel();
+    print('🔧 Initializing timer: $title');
     state = SessionTimerState(
       phase: SessionPhase.idle,
       title: title,
@@ -36,7 +33,9 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
     required Duration focusDuration,
     required Duration breakDuration,
   }) {
-    _timer?.cancel();
+    print('🎯 [Provider] Starting focus session: $title');
+    print('   Focus: ${focusDuration.inMinutes}min, Break: ${breakDuration.inMinutes}min');
+    
     final now = DateTime.now();
     state = SessionTimerState(
       phase: SessionPhase.focusing,
@@ -48,48 +47,17 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
       sessionStartedAt: now,
       totalPausedDuration: Duration.zero,
     );
-    _startTicker();
-  }
 
-  void _startTicker() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (state.isPaused) {
-        return; // Don't tick while paused
-      }
+    print('✅ [Provider] State updated to focusing');
+    print('   Remaining: ${state.remaining.inSeconds}s');
 
-      if (state.remaining > Duration.zero) {
-        state = state.copyWith(
-          remaining: state.remaining - const Duration(seconds: 1),
-        );
-      } else {
-        // Timer reached zero
-        _timer?.cancel();
-        
-        if (state.phase == SessionPhase.focusing) {
-          // Focus done → automatically start break
-          _transitionToBreak();
-        } else if (state.phase == SessionPhase.onBreak) {
-          // Break done → session finished
-          state = state.copyWith(phase: SessionPhase.finished);
-        }
-      }
-    });
-  }
-
-  void _transitionToBreak() {
-    _timer?.cancel();
-    state = state.copyWith(
-      phase: SessionPhase.onBreak,
-      remaining: state.breakDuration,
-      isPaused: false, // Ensure break starts unpaused
+    // Start the background service
+    TimerServiceManager.startTimer(
+      title: title,
+      category: category,
+      focusDuration: focusDuration,
+      breakDuration: breakDuration,
     );
-    _startTicker();
-  }
-
-  void startBreak() {
-    // This method can be kept for manual break start if needed
-    _transitionToBreak();
   }
 
   void pause() {
@@ -99,32 +67,41 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
     }
 
     if (state.isPaused) {
-      return; // Already paused
+      return;
     }
 
+    print('⏸️ [Provider] Pausing timer');
     final now = DateTime.now();
     state = state.copyWith(
       isPaused: true,
       lastPausedAt: now,
     );
-    // Note: We keep the timer running but it checks isPaused in _startTicker
+
+    // Notify background service
+    TimerServiceManager.pauseTimer();
   }
 
   void resume() {
     if (!state.isPaused || state.lastPausedAt == null) return;
 
+    print('▶️ [Provider] Resuming timer');
     final pauseDuration = DateTime.now().difference(state.lastPausedAt!);
     state = state.copyWith(
       isPaused: false,
       totalPausedDuration: state.totalPausedDuration + pauseDuration,
       lastPausedAt: null,
     );
-    // Timer is still running, it will resume ticking automatically
+
+    // Notify background service
+    TimerServiceManager.resumeTimer();
   }
 
   void stopSession() {
-    _timer?.cancel();
+    print('⏹️ [Provider] Stopping session');
     state = const SessionTimerState(phase: SessionPhase.idle);
+    
+    // Stop background service
+    TimerServiceManager.stopTimer();
   }
 
   /// Get the actual time spent focusing (excluding pauses)
@@ -134,12 +111,22 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
     final elapsed = DateTime.now().difference(state.sessionStartedAt!);
     var totalPaused = state.totalPausedDuration;
 
-    // If currently paused, add current pause duration
     if (state.isPaused && state.lastPausedAt != null) {
       totalPaused += DateTime.now().difference(state.lastPausedAt!);
     }
 
     return elapsed - totalPaused;
+  }
+
+  /// Allow direct state updates from background service
+  void updateStateFromService(SessionTimerState newState) {
+    // Only log significant changes to avoid spam
+    if (state.remaining.inSeconds != newState.remaining.inSeconds) {
+      if (newState.remaining.inSeconds % 10 == 0) {
+        print('🔄 [Provider] Syncing from service: ${newState.remaining.inSeconds}s remaining');
+      }
+    }
+    state = newState;
   }
 }
 

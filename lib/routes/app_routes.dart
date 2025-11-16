@@ -9,6 +9,7 @@ import 'package:lockin_app/screens/onboarding/onboarding.dart';
 import 'package:lockin_app/screens/session/finished_session_page.dart';
 import 'package:lockin_app/screens/session/focus_page.dart';
 import 'package:lockin_app/screens/session/session_page.dart';
+import 'package:lockin_app/screens/session/test.dart';
 import 'package:lockin_app/screens/shared/root_layout.dart';
 import 'package:lockin_app/screens/stats.dart';
 

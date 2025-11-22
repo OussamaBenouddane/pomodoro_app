@@ -1,9 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../controllers/home_controller.dart';
+import 'dart:math' as math;
 
 class GoalProgressCard extends ConsumerWidget {
   const GoalProgressCard({super.key});
+
+  Color _getProgressColor(double progress) {
+    if (progress >= 1.0) return Colors.green;
+    if (progress >= 0.75) return Colors.lightGreen;
+    if (progress >= 0.5) return Colors.amber;
+    if (progress >= 0.25) return Colors.orange;
+    return Colors.deepOrange;
+  }
+
+  IconData _getProgressIcon(double progress) {
+    if (progress >= 1.0) return Icons.emoji_events;
+    if (progress >= 0.75) return Icons.trending_up;
+    if (progress >= 0.5) return Icons.flag_rounded;
+    return Icons.flag_outlined;
+  }
+
+  String _getMotivationalMessage(double progress, int remaining) {
+    if (progress >= 1.0) return "🎉 Goal crushed!";
+    if (progress >= 0.75) return "Almost there! $remaining min to go";
+    if (progress >= 0.5) return "Halfway there! Keep going!";
+    if (progress >= 0.25) return "$remaining min left—you got this!";
+    if (progress > 0) return "Great start! $remaining min remaining";
+    return "Ready to begin? $remaining min today";
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -16,54 +41,185 @@ class GoalProgressCard extends ConsumerWidget {
       0.0,
       1.0,
     );
+    final progressColor = _getProgressColor(progress);
+    final progressIcon = _getProgressIcon(progress);
+    final remaining = math.max(0, state.dailyGoalMinutes - state.todayFocusMinutes);
+    final motivationalMsg = _getMotivationalMessage(progress, remaining);
+    final progressPercent = (progress * 100).toInt();
 
     return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.flag_rounded, color: Colors.deepOrange),
-                const SizedBox(width: 8),
-                const Text(
-                  "Today's Goal",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              progressColor.withValues(alpha: 0.1),
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: progressColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      progressIcon,
+                      color: progressColor,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Today's Goal",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        "$progressPercent% complete",
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: Icon(Icons.edit_outlined, color: Colors.grey[600]),
+                    onPressed: () async {
+                      final newGoal = await _showEditDialog(
+                        context,
+                        state.dailyGoalMinutes,
+                      );
+                      if (newGoal != null) {
+                        ref
+                            .read(homeControllerProvider.notifier)
+                            .updateGoal(newGoal);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Stack(
+                children: [
+                  Container(
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 600),
+                    curve: Curves.easeInOut,
+                    height: 12,
+                    width: MediaQuery.of(context).size.width * progress * 0.85,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          progressColor,
+                          progressColor.withValues(alpha: 0.7),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: progressColor.withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        "${state.todayFocusMinutes}",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: progressColor,
+                        ),
+                      ),
+                      Text(
+                        " / ${state.dailyGoalMinutes} min",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (progress >= 1.0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 16,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            "Done",
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                motivationalMsg,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                  fontStyle: FontStyle.italic,
                 ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.grey),
-                  onPressed: () async {
-                    final newGoal = await _showEditDialog(
-                      context,
-                      state.dailyGoalMinutes,
-                    );
-                    if (newGoal != null) {
-                      ref
-                          .read(homeControllerProvider.notifier)
-                          .updateGoal(newGoal);
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              borderRadius: BorderRadius.circular(6),
-              color: Colors.deepOrangeAccent,
-              backgroundColor: Colors.orangeAccent.withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "${state.todayFocusMinutes} / ${state.dailyGoalMinutes} min",
-              style: const TextStyle(fontSize: 16),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -74,11 +230,53 @@ class GoalProgressCard extends ConsumerWidget {
     return showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Set Daily Goal"),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: "Goal (minutes)"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.deepOrange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.flag_rounded,
+                color: Colors.deepOrange,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text("Set Daily Goal"),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "How many minutes do you want to focus today?",
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: "Goal (minutes)",
+                prefixIcon: const Icon(Icons.timer_outlined),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: Colors.deepOrange,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -86,9 +284,18 @@ class GoalProgressCard extends ConsumerWidget {
             child: const Text("Cancel"),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepOrange,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () {
               final value = int.tryParse(controller.text);
-              if (value != null) Navigator.pop(ctx, value);
+              if (value != null && value > 0) {
+                Navigator.pop(ctx, value);
+              }
             },
             child: const Text("Save"),
           ),

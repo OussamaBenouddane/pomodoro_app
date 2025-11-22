@@ -30,7 +30,10 @@ class SessionRepository {
 
   /// Get sessions for a specific week
   Future<List<SessionModel>> getSessionsBetweenDates(
-      int userId, String start, String end) async {
+    int userId,
+    String start,
+    String end,
+  ) async {
     final result = await dbHelper.readDataWithArgs(
       'SELECT * FROM sessions WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date ASC',
       [userId, start, end],
@@ -40,8 +43,11 @@ class SessionRepository {
 
   /// Delete a session
   Future<int> deleteSession(int sessionId) async {
-    return await dbHelper.deleteData('sessions',
-        whereClause: 'session_id = ?', whereArgs: [sessionId]);
+    return await dbHelper.deleteData(
+      'sessions',
+      'session_id = ?',
+      [sessionId],
+    );
   }
 
   /// Update a session (useful if you edit duration or mark synced)

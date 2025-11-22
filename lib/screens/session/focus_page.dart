@@ -125,8 +125,8 @@ class FocusPage extends ConsumerWidget {
           width: 220,
           height: 220,
           child: CircularProgressIndicator(
-            value: totalDuration > 0 
-                ? state.remaining.inSeconds / totalDuration 
+            value: totalDuration > 0
+                ? state.remaining.inSeconds / totalDuration
                 : 0,
             strokeWidth: 12,
             backgroundColor: Colors.grey.shade300,
@@ -173,7 +173,9 @@ class FocusPage extends ConsumerWidget {
           children: [
             IconButton(
               icon: Icon(
-                state.isPaused ? Icons.play_circle_fill : Icons.pause_circle_filled,
+                state.isPaused
+                    ? Icons.play_circle_fill
+                    : Icons.pause_circle_filled,
                 size: 64,
               ),
               color: Colors.blue,
@@ -187,26 +189,6 @@ class FocusPage extends ConsumerWidget {
             ),
           ],
         ),
-        // Optional: Show timer state in debug mode
-        if (kDebugMode)
-          Padding(
-            padding: const EdgeInsets.only(top: 20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '${state.phase.name} | ${state.remaining.inSeconds}s | ${state.isPaused ? "PAUSED" : "RUNNING"}',
-                style: const TextStyle(
-                  color: Colors.greenAccent,
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

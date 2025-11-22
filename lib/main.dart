@@ -16,6 +16,7 @@ void main() async {
   await TimerBackgroundService.initialize();
   await NotificationService.initialize();
   tz.initializeTimeZones();
+  
   print('✅ Services initialized');
   
   runApp(const ProviderScope(child: LockInApp()));

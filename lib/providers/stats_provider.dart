@@ -20,12 +20,11 @@ final statsControllerProvider =
     AsyncNotifierProvider<StatsController, StatsState>(StatsController.new);
 
 class StatsController extends AsyncNotifier<StatsState> {
-  late final StatsRepository _repo;
+  // Remove 'late final' and use getter instead
+  StatsRepository get _repo => ref.read(statsRepositoryProvider);
 
   @override
   FutureOr<StatsState> build() async {
-    _repo = ref.read(statsRepositoryProvider);
-    
     // Get actual user ID
     final userAsync = ref.read(currentUserProvider);
     if (userAsync.value == null) {
@@ -77,18 +76,7 @@ class StatsController extends AsyncNotifier<StatsState> {
     final currentState = state.asData?.value;
     if (currentState == null) return;
 
-    // If cached, just switch to it
-    if (currentState.cachedWeeks.containsKey(weekStart)) {
-      final week = currentState.cachedWeeks[weekStart];
-      final breakdown = await _getCategoryBreakdownForWeek(userId, week);
-      state = AsyncData(currentState.copyWith(
-        currentWeek: week,
-        categoryBreakdown: breakdown,
-      ));
-      return;
-    }
-
-    // Not cached → fetch from DB
+    // Always fetch fresh data instead of using cache
     final week = await _repo.getWeekStats(userId, weekStart);
     if (week == null) return;
 

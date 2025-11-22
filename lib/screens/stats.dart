@@ -12,7 +12,6 @@ import 'package:lockin_app/features/widgets/stats/week_scroller.dart';
 import 'package:lockin_app/features/widgets/stats/week_summary_card.dart';
 import 'package:lockin_app/features/widgets/stats/weekly_hour_bar_chart.dart';
 import 'package:lockin_app/features/widgets/stats/category_pie_chart.dart';
-import 'package:lockin_app/features/widgets/stats/weekly_progress_card.dart';
 
 class StatsDashboardScreen extends ConsumerStatefulWidget {
   const StatsDashboardScreen({super.key});
@@ -26,6 +25,7 @@ class _StatsDashboardScreenState extends ConsumerState<StatsDashboardScreen> {
   DateTime? selectedWeekStart;
   bool isLoadingWeek = false;
   List<HourStatModel> weekHourlyStats = [];
+  int _refreshKey = 0; // Add key to track refreshes
 
   @override
   void initState() {
@@ -121,12 +121,17 @@ class _StatsDashboardScreenState extends ConsumerState<StatsDashboardScreen> {
   Future<List<DayStatModel>> _loadMonthDayStats(
     StatsRepository repo,
     DateTime month,
+    int refreshKey, // Add refreshKey parameter
   ) async {
+    final userAsync = ref.read(currentUserProvider);
+    if (userAsync.value == null) return [];
+    final userId = userAsync.value!.userId!;
+
     final startDate = DateTime(month.year, month.month, 1);
     final endDate = DateTime(month.year, month.month + 1, 0);
 
     return await repo.getStatsInRange(
-      1, // userId
+      userId,
       DateFormat('yyyy-MM-dd').format(startDate),
       DateFormat('yyyy-MM-dd').format(endDate),
     );
@@ -151,8 +156,18 @@ class _StatsDashboardScreenState extends ConsumerState<StatsDashboardScreen> {
         data: (stats) {
           return RefreshIndicator(
             onRefresh: () async {
+              // Invalidate and wait for rebuild
               ref.invalidate(statsControllerProvider);
-              await Future.delayed(const Duration(milliseconds: 500));
+              
+              // Increment refresh key to force FutureBuilder rebuild
+              setState(() {
+                _refreshKey++;
+              });
+              
+              // Wait for provider to rebuild
+              await Future.delayed(const Duration(milliseconds: 100));
+              
+              // Reload week stats
               await _loadWeekStats();
             },
             child: ListView(
@@ -164,11 +179,16 @@ class _StatsDashboardScreenState extends ConsumerState<StatsDashboardScreen> {
                     ref
                         .read(statsControllerProvider.notifier)
                         .changeMonth(ref, forward);
+                    // Trigger refresh of calendar
+                    setState(() {
+                      _refreshKey++;
+                    });
                   },
                 ),
                 const SizedBox(height: 16),
                 FutureBuilder<List<DayStatModel>>(
-                  future: _loadMonthDayStats(repo, currentMonth),
+                  key: ValueKey(_refreshKey), // Use refresh key to force rebuild
+                  future: _loadMonthDayStats(repo, currentMonth, _refreshKey),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const SizedBox(
@@ -195,8 +215,6 @@ class _StatsDashboardScreenState extends ConsumerState<StatsDashboardScreen> {
                 const SizedBox(height: 24),
                 CategoryPieChart(categoryBreakdown: stats.categoryBreakdown),
                 const SizedBox(height: 24),
-                if (stats.currentWeek != null)
-                  WeekProgressCard(weekStats: stats.currentWeek!),
               ],
             ),
           );

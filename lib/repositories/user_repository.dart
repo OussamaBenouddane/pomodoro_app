@@ -41,8 +41,8 @@ class UserRepository {
   Future<void> deleteUser(int userId) async {
     await dbHelper.deleteData(
       'users',
-      whereClause: 'user_id = ?',
-      whereArgs: [userId],
+      'user_id = ?',
+      [userId],
     );
   }
 

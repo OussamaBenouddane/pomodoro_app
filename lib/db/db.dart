@@ -34,7 +34,7 @@ class DBHelper {
         email TEXT UNIQUE,
         username TEXT,
         password TEXT,
-        goal_minutes INTEGER,
+        goal_minutes INTEGER DEFAULT 120,
         date_created TEXT
       )
     ''');
@@ -278,7 +278,7 @@ class DBHelper {
 
   /// Delete helper
   Future<int> deleteData(
-    String table, {
+    String table, String s, List<int> list, {
     String? whereClause,
     List<dynamic>? whereArgs,
   }) async {

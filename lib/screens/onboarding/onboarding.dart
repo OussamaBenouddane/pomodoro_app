@@ -15,111 +15,105 @@ class OnboardingScreen extends ConsumerWidget {
         title: 'Welcome to LockIn',
         description: 'Stay focused and achieve your goals',
         icon: Icons.rocket_launch,
-        color: const Color(0xFF6A11CB),
+        accentColor: const Color(0xFF6366F1),
       ),
       _OnboardingPage(
         title: 'Track Your Progress',
         description: 'Monitor your daily focus sessions',
         icon: Icons.analytics,
-        color: const Color(0xFF2575FC),
+        accentColor: const Color(0xFF8B5CF6),
       ),
       _OnboardingPage(
         title: 'Build Better Habits',
         description: 'Consistency is the key to success',
         icon: Icons.emoji_events,
-        color: const Color(0xFF00C9FF),
+        accentColor: const Color(0xFF06B6D4),
       ),
     ];
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [pages[currentPage].color, pages[currentPage].color.withOpacity(0.7)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: PageView.builder(
-                  controller: controller.pageController,
-                  onPageChanged: controller.setPage,
-                  itemCount: pages.length,
-                  itemBuilder: (context, index) => pages[index],
-                ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: PageView.builder(
+                controller: controller.pageController,
+                onPageChanged: controller.setPage,
+                itemCount: pages.length,
+                itemBuilder: (context, index) => pages[index],
               ),
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    // Page indicators
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        pages.length,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          height: 8,
-                          width: currentPage == index ? 24 : 8,
-                          decoration: BoxDecoration(
-                            color: currentPage == index
-                                ? Colors.white
-                                : Colors.white.withOpacity(0.4),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  // Page indicators
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                      pages.length,
+                      (index) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        height: 8,
+                        width: currentPage == index ? 32 : 8,
+                        decoration: BoxDecoration(
+                          color: currentPage == index
+                              ? pages[currentPage].accentColor
+                              : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(4),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    // Action button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (currentPage < pages.length - 1) {
-                            controller.nextPage();
-                          } else {
-                            // Complete onboarding - router will handle redirect
-                            await controller.completeOnboarding();
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: pages[currentPage].color,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                        ),
-                        child: Text(
-                          currentPage < pages.length - 1 ? 'Next' : 'Get Started',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (currentPage < pages.length - 1)
-                      TextButton(
-                        onPressed: () async {
-                          // Skip to end and complete onboarding
+                  ),
+                  const SizedBox(height: 32),
+                  // Action button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (currentPage < pages.length - 1) {
+                          controller.nextPage();
+                        } else {
                           await controller.completeOnboarding();
-                        },
-                        child: const Text(
-                          'Skip',
-                          style: TextStyle(color: Colors.white70),
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: pages[currentPage].accentColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                  ],
-                ),
+                      child: Text(
+                        currentPage < pages.length - 1 ? 'Next' : 'Get Started',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (currentPage < pages.length - 1)
+                    TextButton(
+                      onPressed: () async {
+                        await controller.completeOnboarding();
+                      },
+                      child: Text(
+                        'Skip',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -130,14 +124,14 @@ class _OnboardingPage extends StatelessWidget {
   final String title;
   final String description;
   final IconData icon;
-  final Color color;
+  final Color accentColor;
 
   const _OnboardingPage({
     Key? key,
     required this.title,
     required this.description,
     required this.icon,
-    required this.color,
+    required this.accentColor,
   }) : super(key: key);
 
   @override
@@ -147,27 +141,35 @@ class _OnboardingPage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            size: 120,
-            color: Colors.white,
+          Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: accentColor.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 80,
+              color: accentColor,
+            ),
           ),
           const SizedBox(height: 48),
           Text(
             title,
             style: const TextStyle(
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: Color(0xFF1F2937),
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
             description,
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.white70,
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey[600],
+              height: 1.5,
             ),
             textAlign: TextAlign.center,
           ),

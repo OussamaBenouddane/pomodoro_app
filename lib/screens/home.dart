@@ -23,9 +23,9 @@ class HomePage extends ConsumerWidget {
             children: const [
               SizedBox(height: 8),
               StreakDisplay(),
-              SizedBox(height: 32),
+              SizedBox(height: 20),
               StartSessionButton(),
-              SizedBox(height: 32),
+              SizedBox(height: 20),
               GoalProgressCard(),
               SizedBox(height: 16),
               SessionReminderCard(),

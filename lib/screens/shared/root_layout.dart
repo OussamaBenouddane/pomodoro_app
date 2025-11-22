@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/providers/bottom_nav_provider.dart';
 import 'package:lockin_app/screens/home.dart';
+import 'package:lockin_app/screens/settings.dart';
 import 'package:lockin_app/screens/stats.dart';
 
 class RootLayout extends ConsumerWidget {
@@ -16,8 +17,7 @@ class RootLayout extends ConsumerWidget {
     final pages = const [
       HomePage(),
       StatsDashboardScreen(),
-      Placeholder(),
-      Placeholder(),
+      SettingsScreen(),
     ];
 
     return Scaffold(
@@ -45,10 +45,6 @@ class RootLayout extends ConsumerWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics),
             label: 'Stats',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

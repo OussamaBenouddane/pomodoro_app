@@ -11,6 +11,7 @@ import 'package:lockin_app/screens/onboarding/onboarding.dart';
 import 'package:lockin_app/screens/session/finished_session_page.dart';
 import 'package:lockin_app/screens/session/focus_page.dart';
 import 'package:lockin_app/screens/session/session_page.dart';
+import 'package:lockin_app/screens/settings.dart';
 import 'package:lockin_app/screens/shared/root_layout.dart';
 import 'package:lockin_app/screens/stats.dart';
 
@@ -150,8 +151,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/home', builder: (_, __) => const HomePage()),
           GoRoute(path: '/stats', builder: (_, __) => StatsDashboardScreen()),
-          GoRoute(path: '/profile', builder: (_, __) => const Placeholder()),
-          GoRoute(path: '/settings', builder: (_, __) => const Placeholder()),
+          GoRoute(path: '/settings', builder: (_, __) => SettingsScreen()),
         ],
       ),
     ],

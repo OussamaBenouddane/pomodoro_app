@@ -24,9 +24,6 @@ class BottomNavController extends Notifier<int> {
         _context.go('/stats');
         break;
       case 2:
-        _context.go('/profile');
-        break;
-      case 3:
         _context.go('/settings');
         break;
     }

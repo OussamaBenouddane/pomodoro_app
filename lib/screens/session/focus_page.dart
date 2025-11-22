@@ -6,9 +6,6 @@ import 'package:lockin_app/model/session_timer_model.dart';
 import 'package:lockin_app/providers/session_timer_provider.dart';
 import 'package:lockin_app/providers/session_provider.dart';
 
-// Import your debug widget if you created it
-// import 'package:lockin_app/screens/session/debug_timer_status.dart';
-
 class FocusPage extends ConsumerWidget {
   const FocusPage({super.key});
 
@@ -20,19 +17,36 @@ class FocusPage extends ConsumerWidget {
 
   Color _getPhaseColor(SessionPhase phase) {
     return phase == SessionPhase.focusing
-        ? Colors.deepOrangeAccent
-        : Colors.teal;
+        ? const Color(0xFF6366F1)
+        : const Color(0xFF06B6D4);
   }
 
   String _getPhaseTitle(SessionPhase phase) {
     switch (phase) {
       case SessionPhase.focusing:
-        return 'Focus Mode';
+        return 'Focus Time';
       case SessionPhase.onBreak:
         return 'Break Time';
       default:
         return 'Session';
     }
+  }
+
+  String _getPhaseSubtitle(SessionPhase phase) {
+    switch (phase) {
+      case SessionPhase.focusing:
+        return 'Stay focused and block out distractions';
+      case SessionPhase.onBreak:
+        return 'Relax and recharge for the next session';
+      default:
+        return '';
+    }
+  }
+
+  IconData _getPhaseIcon(SessionPhase phase) {
+    return phase == SessionPhase.focusing
+        ? Icons.psychology_outlined
+        : Icons.coffee_outlined;
   }
 
   @override
@@ -43,40 +57,26 @@ class FocusPage extends ConsumerWidget {
     final color = _getPhaseColor(timerState.phase);
 
     return Scaffold(
-      backgroundColor: color.withValues(alpha: 0.08),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(_getPhaseTitle(timerState.phase)),
-        backgroundColor: color,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF1F2937),
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         actions: [
           if (timerState.phase != SessionPhase.idle &&
               timerState.phase != SessionPhase.finished)
             IconButton(
-              icon: const Icon(Icons.stop_circle_outlined),
-              color: Colors.white,
+              icon: const Icon(Icons.close),
+              color: Colors.grey[600],
               onPressed: () => _confirmStop(context, ref, timer),
             ),
         ],
       ),
-      body: Stack(
-        children: [
-          Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
-              transitionBuilder: (child, anim) =>
-                  ScaleTransition(scale: anim, child: child),
-              child: _buildPhaseContent(context, ref, timerState, timer, color),
-            ),
-          ),
-          // Add debug widget here if needed (only in debug mode)
-          // if (kDebugMode)
-          //   Positioned(
-          //     top: 80,
-          //     left: 0,
-          //     right: 0,
-          //     child: const DebugTimerStatus(),
-          //   ),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        child: _buildPhaseContent(context, ref, timerState, timer, color),
       ),
     );
   }
@@ -92,50 +92,130 @@ class FocusPage extends ConsumerWidget {
       return _buildFinishedContent(context, ref, state, timer);
     }
 
-    return Column(
+    return Center(
       key: ValueKey(state.phase),
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _buildTimerDisplay(state, color),
-        const SizedBox(height: 40),
-        Text(
-          state.title ?? 'Focus Session',
-          style: TextStyle(
-            fontSize: 20,
-            color: color,
-            fontWeight: FontWeight.w600,
-          ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Phase icon with background
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _getPhaseIcon(state.phase),
+                size: 48,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 40),
+            
+            // Timer display
+            _buildModernTimerDisplay(state, color),
+            const SizedBox(height: 32),
+            
+            // Session title
+            Text(
+              state.title ?? 'Focus Session',
+              style: const TextStyle(
+                fontSize: 22,
+                color: Color(0xFF1F2937),
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            
+            // Phase subtitle
+            Text(
+              _getPhaseSubtitle(state.phase),
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 48),
+            
+            // Control buttons
+            _buildControlButtons(context, ref, state, timer, color),
+          ],
         ),
-        const SizedBox(height: 60),
-        _buildControlButtons(context, ref, state, timer),
-      ],
+      ),
     );
   }
 
-  Widget _buildTimerDisplay(SessionTimerState state, Color color) {
+  Widget _buildModernTimerDisplay(SessionTimerState state, Color color) {
     final isFocus = state.phase == SessionPhase.focusing;
     final totalDuration = isFocus
         ? state.focusDuration.inSeconds
         : state.breakDuration.inSeconds;
+    final progress = totalDuration > 0
+        ? state.remaining.inSeconds / totalDuration
+        : 0.0;
 
     return Stack(
       alignment: Alignment.center,
       children: [
-        SizedBox(
-          width: 220,
-          height: 220,
-          child: CircularProgressIndicator(
-            value: totalDuration > 0
-                ? state.remaining.inSeconds / totalDuration
-                : 0,
-            strokeWidth: 12,
-            backgroundColor: Colors.grey.shade300,
-            color: color,
+        // Outer circle background
+        Container(
+          width: 260,
+          height: 260,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.grey[50],
+            border: Border.all(color: Colors.grey[200]!, width: 2),
           ),
         ),
-        Text(
-          _formatTime(state.remaining),
-          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+        // Progress indicator
+        SizedBox(
+          width: 240,
+          height: 240,
+          child: CircularProgressIndicator(
+            value: progress,
+            strokeWidth: 8,
+            backgroundColor: color.withOpacity(0.1),
+            color: color,
+            strokeCap: StrokeCap.round,
+          ),
+        ),
+        // Time text
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _formatTime(state.remaining),
+              style: const TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w300,
+                color: Color(0xFF1F2937),
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (state.isPaused)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.orange[200]!),
+                ),
+                child: Text(
+                  'PAUSED',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange[700],
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
@@ -146,13 +226,18 @@ class FocusPage extends ConsumerWidget {
     WidgetRef ref,
     SessionTimerState state,
     SessionTimerNotifier timer,
+    Color color,
   ) {
     if (state.phase == SessionPhase.idle) {
       return ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
+          backgroundColor: color,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 18),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
         onPressed: () => timer.startFocus(
           title: state.title ?? 'Focus Session',
@@ -160,34 +245,48 @@ class FocusPage extends ConsumerWidget {
           focusDuration: state.focusDuration,
           breakDuration: state.breakDuration,
         ),
-        child: const Text('Start Focus', style: TextStyle(fontSize: 18)),
+        child: const Text(
+          'Start Session',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
       );
     }
 
-    // For focusing and onBreak phases - REMOVED DebugServiceWidget from Row
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              icon: Icon(
-                state.isPaused
-                    ? Icons.play_circle_fill
-                    : Icons.pause_circle_filled,
-                size: 64,
-              ),
-              color: Colors.blue,
-              onPressed: state.isPaused ? timer.resume : timer.pause,
+        // Pause/Resume button
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.grey[300]!, width: 2),
+          ),
+          child: IconButton(
+            icon: Icon(
+              state.isPaused ? Icons.play_arrow : Icons.pause,
+              size: 36,
             ),
-            const SizedBox(width: 40),
-            IconButton(
-              icon: const Icon(Icons.stop_circle_outlined, size: 54),
-              color: Colors.redAccent,
-              onPressed: () => _confirmStop(context, ref, timer),
-            ),
-          ],
+            color: color,
+            onPressed: state.isPaused ? timer.resume : timer.pause,
+            padding: const EdgeInsets.all(18),
+          ),
+        ),
+        const SizedBox(width: 24),
+        
+        // Stop button
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.grey[300]!, width: 2),
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.stop, size: 32),
+            color: Colors.red[400],
+            onPressed: () => _confirmStop(context, ref, timer),
+            padding: const EdgeInsets.all(18),
+          ),
         ),
       ],
     );
@@ -199,57 +298,83 @@ class FocusPage extends ConsumerWidget {
     SessionTimerState state,
     SessionTimerNotifier timer,
   ) {
-    return Column(
+    return Center(
       key: const ValueKey('finished'),
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.check_circle_outline, size: 80, color: Colors.green),
-        const SizedBox(height: 24),
-        const Text(
-          'Great work! 🎉',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Ready for another focus session?',
-          style: TextStyle(fontSize: 16),
-        ),
-        const SizedBox(height: 40),
-        Row(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.green[200]!, width: 2),
+              ),
+              child: Icon(
+                Icons.check_circle_outline,
+                size: 80,
+                color: Colors.green[600],
+              ),
+            ),
+            const SizedBox(height: 32),
+            const Text(
+              'Session Complete!',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1F2937),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Great work staying focused',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 48),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
+                backgroundColor: const Color(0xFF6366F1),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+                  horizontal: 40,
+                  vertical: 18,
+                ),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+              onPressed: () => _navigateToFinished(context, ref, timer),
+              child: const Text(
+                'View Summary',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
               onPressed: () => timer.startFocus(
                 title: state.title ?? 'Focus Session',
                 category: state.category ?? 'General',
                 focusDuration: state.focusDuration,
                 breakDuration: state.breakDuration,
               ),
-              child: const Text('Start New Session'),
-            ),
-            const SizedBox(width: 20),
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.grey.shade700,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
+              child: Text(
+                'Start Another Session',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              onPressed: () => _navigateToFinished(context, ref, timer),
-              child: const Text('View Summary'),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 
@@ -273,17 +398,41 @@ class FocusPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('End Session?'),
-        content: const Text('Your progress will be saved up to this point.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'End Session Early?',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1F2937),
+          ),
+        ),
+        content: Text(
+          'Your progress will be saved up to this point.',
+          style: TextStyle(
+            fontSize: 15,
+            color: Colors.grey[600],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: Colors.red[400],
               foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(dialogContext);
@@ -296,7 +445,7 @@ class FocusPage extends ConsumerWidget {
                 context.go('/finished/${focusTime.inSeconds}');
               }
             },
-            child: const Text('Save & Exit'),
+            child: const Text('End Session'),
           ),
         ],
       ),

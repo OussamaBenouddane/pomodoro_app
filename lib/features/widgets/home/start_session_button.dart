@@ -9,17 +9,19 @@ class StartSessionButton extends StatelessWidget {
     return Center(
       child: ElevatedButton.icon(
         onPressed: () => context.push('/session'),
-        icon: const Icon(Icons.play_arrow_rounded, size: 34),
+        icon: const Icon(Icons.play_arrow_rounded, size: 28),
         label: const Text("Start a Session"),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.deepOrangeAccent,
+          backgroundColor: const Color(0xFF6366F1),
           foregroundColor: Colors.white,
-          elevation: 10,
-          shadowColor: Colors.deepOrangeAccent.withValues(alpha: 0.4),
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 48),
-          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 40),
+          textStyle: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../controllers/home_controller.dart';
 import 'dart:math' as math;
+import 'package:lockin_app/features/controllers/home_controller.dart';
 
 class GoalProgressCard extends ConsumerWidget {
   const GoalProgressCard({super.key});
@@ -35,7 +35,17 @@ class GoalProgressCard extends ConsumerWidget {
     final state = ref
         .watch(homeControllerProvider)
         .maybeWhen(data: (data) => data, orElse: () => null);
+
     if (state == null) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.6);
+    final cardColor =
+        Theme.of(context).cardTheme.color ??
+        Theme.of(context).colorScheme.surface;
 
     final progress = (state.todayFocusMinutes / state.dailyGoalMinutes).clamp(
       0.0,
@@ -43,13 +53,17 @@ class GoalProgressCard extends ConsumerWidget {
     );
     final progressColor = _getProgressColor(progress);
     final progressIcon = _getProgressIcon(progress);
-    final remaining = math.max(0, state.dailyGoalMinutes - state.todayFocusMinutes);
+    final remaining = math.max(
+      0,
+      state.dailyGoalMinutes - state.todayFocusMinutes,
+    );
     final motivationalMsg = _getMotivationalMessage(progress, remaining);
     final progressPercent = (progress * 100).toInt();
 
     return Card(
-      elevation: 4,
+      elevation: isDark ? 0 : 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: cardColor,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -57,8 +71,8 @@ class GoalProgressCard extends ConsumerWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              progressColor.withValues(alpha: 0.1),
-              Colors.white,
+              progressColor.withValues(alpha: isDark ? 0.2 : 0.1),
+              cardColor,
             ],
           ),
         ),
@@ -75,29 +89,25 @@ class GoalProgressCard extends ConsumerWidget {
                       color: progressColor.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(
-                      progressIcon,
-                      color: progressColor,
-                      size: 24,
-                    ),
+                    child: Icon(progressIcon, color: progressColor, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         "Today's Goal",
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: textColor,
                         ),
                       ),
                       Text(
                         "$progressPercent% complete",
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey[600],
+                          color: subtextColor,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -105,7 +115,7 @@ class GoalProgressCard extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.edit_outlined, color: Colors.grey[600]),
+                    icon: Icon(Icons.edit_outlined, color: subtextColor),
                     onPressed: () async {
                       final newGoal = await _showEditDialog(
                         context,
@@ -126,7 +136,9 @@ class GoalProgressCard extends ConsumerWidget {
                   Container(
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: isDark
+                          ? const Color(0xFF374151)
+                          : Colors.grey[200],
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
@@ -143,13 +155,6 @@ class GoalProgressCard extends ConsumerWidget {
                         ],
                       ),
                       borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: progressColor.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
                     ),
                   ),
                 ],
@@ -172,7 +177,7 @@ class GoalProgressCard extends ConsumerWidget {
                         " / ${state.dailyGoalMinutes} min",
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.grey[700],
+                          color: textColor,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -214,7 +219,7 @@ class GoalProgressCard extends ConsumerWidget {
                 motivationalMsg,
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey[600],
+                  color: subtextColor,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -227,10 +232,21 @@ class GoalProgressCard extends ConsumerWidget {
 
   Future<int?> _showEditDialog(BuildContext context, int currentGoal) async {
     final controller = TextEditingController(text: currentGoal.toString());
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor =
+        Theme.of(context).cardTheme.color ??
+        Theme.of(context).colorScheme.surface;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.6);
+    final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[300]!;
+
     return showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: cardColor,
         title: Row(
           children: [
             Container(
@@ -239,33 +255,37 @@ class GoalProgressCard extends ConsumerWidget {
                 color: Colors.deepOrange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.flag_rounded,
-                color: Colors.deepOrange,
-              ),
+              child: const Icon(Icons.flag_rounded, color: Colors.deepOrange),
             ),
             const SizedBox(width: 12),
-            const Text("Set Daily Goal"),
+            Text("Set Daily Goal", style: TextStyle(color: textColor)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "How many minutes do you want to focus today?",
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(fontSize: 14, color: subtextColor),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: controller,
               keyboardType: TextInputType.number,
               autofocus: true,
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: "Goal (minutes)",
+                labelStyle: TextStyle(color: subtextColor),
                 prefixIcon: const Icon(Icons.timer_outlined),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: borderColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: borderColor),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -281,7 +301,7 @@ class GoalProgressCard extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
+            child: Text("Cancel", style: TextStyle(color: subtextColor)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

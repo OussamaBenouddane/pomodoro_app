@@ -11,13 +11,16 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Ensures homeController refreshes when sessions change
+    ref.read(homeRefreshListenerProvider);
+
     final asyncState = ref.watch(homeControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text("Welcome Back!")),
       body: asyncState.when(
         data: (_) => SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: const [

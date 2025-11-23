@@ -28,6 +28,15 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
   Future<List<SessionModel>> build() async {
     _sessionRepo = ref.read(sessionRepositoryProvider);
     _statsRepo = ref.read(statsRepositoryProvider);
+    
+    // ✅ Initialize with current user's sessions
+    final userAsync = ref.read(currentUserProvider);
+    if (userAsync.value != null && userAsync.value!.userId != null) {
+      _userId = userAsync.value!.userId!;
+      final sessions = await _sessionRepo.getSessionsByUser(_userId!);
+      return sessions;
+    }
+    
     return [];
   }
 
@@ -80,21 +89,37 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
 
   /// When session timer finishes → insert new record and update stats
   Future<void> saveFinishedSession(SessionTimerState completedTimer) async {
-    final user = ref.read(currentUserProvider).value; // ✅ get inner UserModel
+    final user = ref.read(currentUserProvider).value;
 
-    if (user == null || user.userId == null) return; // ✅ guard against null
+    if (user == null || user.userId == null) return;
 
     try {
       final now = DateTime.now();
       final date = now.toIso8601String().split('T').first;
 
+      // ✅ CRITICAL FIX: Calculate actual focus time (excluding pauses)
+      final actualFocusTime = _calculateActualFocusTime(completedTimer);
+      final actualFocusMinutes = actualFocusTime.inMinutes;
+
+      print('💾 Saving session:');
+      print('   Planned duration: ${completedTimer.focusDuration.inMinutes}min');
+      print('   Actual focus time: ${actualFocusMinutes}min');
+      print('   Total paused: ${completedTimer.totalPausedDuration.inMinutes}min');
+
+      // Don't save sessions with 0 minutes
+      if (actualFocusMinutes <= 0) {
+        print('⚠️  Session not saved: 0 minutes focused');
+        return;
+      }
+
       final session = SessionModel(
         userId: user.userId!,
         title: completedTimer.title ?? 'Focus Session',
         category: completedTimer.category ?? 'General',
-        focusMinutes: completedTimer.focusDuration.inMinutes,
+        focusMinutes: actualFocusMinutes, // ✅ Use actual focus time, not planned duration
         date: date,
-        startTime: now.subtract(completedTimer.focusDuration).toIso8601String(),
+        startTime: completedTimer.sessionStartedAt?.toIso8601String() ?? 
+                   now.subtract(actualFocusTime).toIso8601String(),
         endTime: now.toIso8601String(),
         lastUpdated: now.millisecondsSinceEpoch,
       );
@@ -104,10 +129,35 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       // Recalculate all stats for today
       await _recalculateStatsForDate(user.userId!, date);
 
-      if (_userId != null) await loadUserSessions(_userId!);
+      // ✅ Always set _userId and reload sessions
+      _userId = user.userId!;
+      await loadUserSessions(_userId!);
+      
+      print('✅ Session saved successfully');
     } catch (e, stack) {
+      print('❌ Error saving session: $e');
       state = AsyncError(e, stack);
     }
+  }
+
+  /// Calculate actual focus time (excluding pauses)
+  Duration _calculateActualFocusTime(SessionTimerState timerState) {
+    if (timerState.sessionStartedAt == null) {
+      return Duration.zero;
+    }
+
+    final elapsed = DateTime.now().difference(timerState.sessionStartedAt!);
+    var totalPaused = timerState.totalPausedDuration;
+
+    // If currently paused, add the current pause duration
+    if (timerState.isPaused && timerState.lastPausedAt != null) {
+      totalPaused += DateTime.now().difference(timerState.lastPausedAt!);
+    }
+
+    final actualFocusTime = elapsed - totalPaused;
+    
+    // Ensure we don't return negative duration
+    return actualFocusTime.isNegative ? Duration.zero : actualFocusTime;
   }
 
   /// Helper to recalculate all stats for a given date

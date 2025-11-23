@@ -20,6 +20,11 @@ class RootLayout extends ConsumerWidget {
       SettingsScreen(),
     ];
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final backgroundColor = isDark ? const Color(0xFF1F2937) : Colors.white;
+    final unselectedColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+
     return Scaffold(
       body: SafeArea(
         child: IndexedStack(
@@ -30,10 +35,10 @@ class RootLayout extends ConsumerWidget {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: currentIndex,
         onTap: controller.onItemTapped,
-        type: BottomNavigationBarType.fixed, // Keep icons visible
-        selectedItemColor: const Color(0xFF6A11CB), // Purple for selected
-        unselectedItemColor: Colors.grey, // Grey for unselected
-        backgroundColor: Colors.white, // White background
+        type: BottomNavigationBarType.fixed,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: unselectedColor,
+        backgroundColor: backgroundColor,
         elevation: 8,
         selectedFontSize: 12,
         unselectedFontSize: 12,

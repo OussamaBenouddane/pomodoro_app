@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lockin_app/providers/theme_provider.dart';
 import 'package:lockin_app/providers/user_provider.dart';
-
-// Theme mode provider (you'll need to create this)
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.light);
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,12 +13,18 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final isDarkMode = themeMode == ThemeMode.dark;
 
+    // Dynamic colors based on theme
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF1F2937),
+        backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
+        foregroundColor: Theme.of(context).appBarTheme.foregroundColor,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
@@ -38,18 +41,18 @@ class SettingsScreen extends ConsumerWidget {
                       margin: const EdgeInsets.all(16),
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
+                        color: primaryColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF6366F1).withValues(alpha: 0.2),
+                          color: primaryColor.withOpacity(0.2),
                         ),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(16),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF6366F1),
+                            decoration: BoxDecoration(
+                              color: primaryColor,
                               shape: BoxShape.circle,
                             ),
                             child: Text(
@@ -70,10 +73,10 @@ class SettingsScreen extends ConsumerWidget {
                               children: [
                                 Text(
                                   user.username,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1F2937),
+                                    color: textColor,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -81,7 +84,7 @@ class SettingsScreen extends ConsumerWidget {
                                   user.email,
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.grey[600],
+                                    color: subtextColor,
                                   ),
                                 ),
                               ],
@@ -93,9 +96,11 @@ class SettingsScreen extends ConsumerWidget {
 
                     // Appearance Section
                     _buildSection(
+                      context: context,
                       title: 'Appearance',
                       children: [
                         _buildSwitchTile(
+                          context: context,
                           icon: isDarkMode
                               ? Icons.dark_mode_outlined
                               : Icons.light_mode_outlined,
@@ -103,8 +108,7 @@ class SettingsScreen extends ConsumerWidget {
                           subtitle: 'Switch between light and dark theme',
                           value: isDarkMode,
                           onChanged: (value) {
-                            ref.read(themeModeProvider.notifier).state =
-                                value ? ThemeMode.dark : ThemeMode.light;
+                            ref.read(themeModeProvider.notifier).toggleTheme();
                           },
                         ),
                       ],
@@ -112,21 +116,25 @@ class SettingsScreen extends ConsumerWidget {
 
                     // Focus Settings Section
                     _buildSection(
+                      context: context,
                       title: 'Focus Settings',
                       children: [
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.timer_outlined,
                           title: 'Default Session Duration',
                           subtitle: '25 minutes',
                           onTap: () => _showDurationDialog(context),
                         ),
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.coffee_outlined,
                           title: 'Default Break Duration',
                           subtitle: '5 minutes',
                           onTap: () => _showDurationDialog(context),
                         ),
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.flag_outlined,
                           title: 'Daily Goal',
                           subtitle: '${user.goalMinutes} minutes',
@@ -137,9 +145,11 @@ class SettingsScreen extends ConsumerWidget {
 
                     // Notifications Section
                     _buildSection(
+                      context: context,
                       title: 'Notifications',
                       children: [
                         _buildSwitchTile(
+                          context: context,
                           icon: Icons.notifications_outlined,
                           title: 'Push Notifications',
                           subtitle: 'Get reminded about your sessions',
@@ -149,6 +159,7 @@ class SettingsScreen extends ConsumerWidget {
                           },
                         ),
                         _buildSwitchTile(
+                          context: context,
                           icon: Icons.vibration,
                           title: 'Vibration',
                           subtitle: 'Vibrate on session completion',
@@ -162,9 +173,11 @@ class SettingsScreen extends ConsumerWidget {
 
                     // Data & Privacy Section
                     _buildSection(
+                      context: context,
                       title: 'Data & Privacy',
                       children: [
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.download_outlined,
                           title: 'Export Data',
                           subtitle: 'Download your session history',
@@ -182,6 +195,7 @@ class SettingsScreen extends ConsumerWidget {
                           },
                         ),
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.delete_outline,
                           title: 'Clear History',
                           subtitle: 'Delete all session data',
@@ -193,15 +207,18 @@ class SettingsScreen extends ConsumerWidget {
 
                     // About Section
                     _buildSection(
+                      context: context,
                       title: 'About',
                       children: [
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.info_outline,
                           title: 'App Version',
                           subtitle: '1.0.0',
                           onTap: () {},
                         ),
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.help_outline,
                           title: 'Help & Support',
                           subtitle: 'FAQs and contact us',
@@ -210,6 +227,7 @@ class SettingsScreen extends ConsumerWidget {
                           },
                         ),
                         _buildNavigationTile(
+                          context: context,
                           icon: Icons.privacy_tip_outlined,
                           title: 'Privacy Policy',
                           subtitle: 'How we handle your data',
@@ -252,9 +270,16 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Widget _buildSection({
+    required BuildContext context,
     required String title,
     required List<Widget> children,
   }) {
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
+    final borderColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF374151)
+        : Colors.grey[200]!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -265,7 +290,7 @@ class SettingsScreen extends ConsumerWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+              color: subtextColor,
               letterSpacing: 0.5,
             ),
           ),
@@ -273,9 +298,9 @@ class SettingsScreen extends ConsumerWidget {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: cardColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey[200]!),
+            border: Border.all(color: borderColor),
           ),
           child: Column(children: children),
         ),
@@ -284,57 +309,66 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Widget _buildSwitchTile({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF6366F1).withOpacity(0.1),
+          color: primaryColor.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
           icon,
-          color: const Color(0xFF6366F1),
+          color: primaryColor,
           size: 20,
         ),
       ),
       title: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF1F2937),
+          color: textColor,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(
           fontSize: 13,
-          color: Colors.grey[600],
+          color: subtextColor,
         ),
       ),
       trailing: Switch(
         value: value,
-        activeColor: const Color(0xFF6366F1),
+        activeColor: primaryColor,
         onChanged: onChanged,
       ),
     );
   }
 
   Widget _buildNavigationTile({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {
-    final color = isDestructive ? Colors.red[400]! : const Color(0xFF6366F1);
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final color = isDestructive ? Colors.red[400]! : primaryColor;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -355,44 +389,48 @@ class SettingsScreen extends ConsumerWidget {
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: isDestructive ? Colors.red[600] : const Color(0xFF1F2937),
+          color: isDestructive ? Colors.red[600] : textColor,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(
           fontSize: 13,
-          color: Colors.grey[600],
+          color: subtextColor,
         ),
       ),
       trailing: Icon(
         Icons.chevron_right,
-        color: Colors.grey[400],
+        color: subtextColor,
       ),
       onTap: onTap,
     );
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        backgroundColor: Colors.white,
-        title: const Text(
+        backgroundColor: cardColor,
+        title: Text(
           'Log Out',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
+            color: textColor,
           ),
         ),
         content: Text(
           'Are you sure you want to log out?',
           style: TextStyle(
             fontSize: 15,
-            color: Colors.grey[600],
+            color: subtextColor,
           ),
         ),
         actions: [
@@ -401,7 +439,7 @@ class SettingsScreen extends ConsumerWidget {
             child: Text(
               'Cancel',
               style: TextStyle(
-                color: Colors.grey[700],
+                color: subtextColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -431,6 +469,13 @@ class SettingsScreen extends ConsumerWidget {
 
   void _showGoalDialog(BuildContext context, WidgetRef ref, int currentGoal) {
     final controller = TextEditingController(text: currentGoal.toString());
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final borderColor = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF374151)
+        : Colors.grey[300]!;
 
     showDialog(
       context: context,
@@ -438,33 +483,35 @@ class SettingsScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        backgroundColor: Colors.white,
-        title: const Text(
+        backgroundColor: cardColor,
+        title: Text(
           'Daily Goal',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
+            color: textColor,
           ),
         ),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
+          style: TextStyle(color: textColor),
           decoration: InputDecoration(
             labelText: 'Minutes per day',
-            labelStyle: TextStyle(color: Colors.grey[600]),
+            labelStyle: TextStyle(color: subtextColor),
             suffixText: 'min',
+            suffixStyle: TextStyle(color: subtextColor),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(color: borderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(color: borderColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF6366F1),
+              borderSide: BorderSide(
+                color: primaryColor,
                 width: 2,
               ),
             ),
@@ -476,14 +523,14 @@ class SettingsScreen extends ConsumerWidget {
             child: Text(
               'Cancel',
               style: TextStyle(
-                color: Colors.grey[700],
+                color: subtextColor,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF6366F1),
+              backgroundColor: primaryColor,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -518,25 +565,29 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showClearHistoryDialog(BuildContext context) {
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
-        backgroundColor: Colors.white,
-        title: const Text(
+        backgroundColor: cardColor,
+        title: Text(
           'Clear History',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2937),
+            color: textColor,
           ),
         ),
         content: Text(
           'This will permanently delete all your session data. This action cannot be undone.',
           style: TextStyle(
             fontSize: 15,
-            color: Colors.grey[600],
+            color: subtextColor,
           ),
         ),
         actions: [
@@ -545,7 +596,7 @@ class SettingsScreen extends ConsumerWidget {
             child: Text(
               'Cancel',
               style: TextStyle(
-                color: Colors.grey[700],
+                color: subtextColor,
                 fontWeight: FontWeight.w600,
               ),
             ),

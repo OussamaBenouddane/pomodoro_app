@@ -9,10 +9,14 @@ class SessionTimerState {
   final Duration remaining;
   final bool isPaused;
   
-  // New fields for accurate time tracking
+  // Time tracking fields
   final DateTime? sessionStartedAt;
   final DateTime? lastPausedAt;
   final Duration totalPausedDuration;
+  
+  // ✅ NEW: Track when focus phase ended and actual focus minutes
+  final DateTime? focusEndedAt;
+  final int? actualFocusMinutes;
 
   const SessionTimerState({
     this.phase = SessionPhase.idle,
@@ -25,6 +29,8 @@ class SessionTimerState {
     this.sessionStartedAt,
     this.lastPausedAt,
     this.totalPausedDuration = Duration.zero,
+    this.focusEndedAt,
+    this.actualFocusMinutes,
   });
 
   SessionTimerState copyWith({
@@ -38,6 +44,8 @@ class SessionTimerState {
     DateTime? sessionStartedAt,
     DateTime? lastPausedAt,
     Duration? totalPausedDuration,
+    DateTime? focusEndedAt,
+    int? actualFocusMinutes,
   }) {
     return SessionTimerState(
       phase: phase ?? this.phase,
@@ -50,6 +58,8 @@ class SessionTimerState {
       sessionStartedAt: sessionStartedAt ?? this.sessionStartedAt,
       lastPausedAt: lastPausedAt ?? this.lastPausedAt,
       totalPausedDuration: totalPausedDuration ?? this.totalPausedDuration,
+      focusEndedAt: focusEndedAt ?? this.focusEndedAt,
+      actualFocusMinutes: actualFocusMinutes ?? this.actualFocusMinutes,
     );
   }
 

@@ -70,9 +70,6 @@ class StatsRepository {
     return result.map((map) => WeekStatModel.fromMap(map)).toList();
   }
 
-  // Add this method to your StatsRepository class
-
-  // Add this method to your StatsRepository class
 
   Future<List<HourStatModel>> getHourlyStatsForRange(
     int userId,

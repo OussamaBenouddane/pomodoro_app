@@ -1,7 +1,15 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/db/db.dart';
+import 'package:lockin_app/providers/session_provider.dart';
 import 'package:lockin_app/providers/user_provider.dart';
+
+final homeRefreshListenerProvider = Provider((ref) {
+  ref.listen(sessionProvider, (_, __) {
+    ref.invalidate(homeControllerProvider);
+  });
+});
+
 
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return HomeRepository(DBHelper());
@@ -27,6 +35,7 @@ class HomeController extends AsyncNotifier<HomeState> {
     }
 
     final userId = userAsync.value!.userId!;
+
     return await _loadHomeData(userId);
   }
 
@@ -62,10 +71,13 @@ class HomeController extends AsyncNotifier<HomeState> {
     final current = state.maybeWhen(data: (data) => data, orElse: () => null);
     if (current == null) return;
 
-    // Update in database
+    // Update in database first
     await _repo.updateUserGoal(userId, newGoal);
 
-    // Update state
+    // Also update the user provider
+    await ref.read(currentUserProvider.notifier).updateGoal(newGoal);
+
+    // Update state immediately
     state = AsyncData(current.copyWith(dailyGoalMinutes: newGoal));
   }
 
@@ -90,6 +102,14 @@ class HomeController extends AsyncNotifier<HomeState> {
     final userId = userAsync.value!.userId!;
 
     state = await AsyncValue.guard(() => _loadHomeData(userId));
+  }
+
+  // Method to update today's focus minutes without full reload
+  void updateTodayMinutes(int minutes) {
+    final current = state.maybeWhen(data: (data) => data, orElse: () => null);
+    if (current == null) return;
+
+    state = AsyncData(current.copyWith(todayFocusMinutes: minutes));
   }
 }
 

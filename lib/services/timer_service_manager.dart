@@ -15,6 +15,7 @@ class TimerServiceManager {
   static StreamSubscription? _timerUpdateSub;
   static StreamSubscription? _phaseChangedSub;
   static StreamSubscription? _serviceReadySub;
+  static StreamSubscription? _sessionCompletedSub;
 
   static void initialize(WidgetRef ref) {
     _ref = ref;
@@ -25,6 +26,7 @@ class TimerServiceManager {
       _timerUpdateSub?.cancel();
       _phaseChangedSub?.cancel();
       _serviceReadySub?.cancel();
+      _sessionCompletedSub?.cancel();
       
       _serviceReadySub = _service.on('service_ready').listen((event) {
         if (_serviceReadyCompleter != null && !_serviceReadyCompleter!.isCompleted) {
@@ -41,6 +43,13 @@ class TimerServiceManager {
       _phaseChangedSub = _service.on('phase_changed').listen((event) {
         if (event != null) {
           _handlePhaseChange(event);
+        }
+      });
+
+      // ✅ NEW: Listen for session completion when user stops during focus
+      _sessionCompletedSub = _service.on('session_completed').listen((event) {
+        if (event != null) {
+          _handleSessionCompleted(event);
         }
       });
     }
@@ -68,6 +77,11 @@ class TimerServiceManager {
         final isPaused = state['isPaused'] as bool;
         final focusDurationSeconds = state['focusDurationSeconds'] as int;
         final breakDurationSeconds = state['breakDurationSeconds'] as int;
+        final sessionStartTimestamp = state['sessionStartTimestamp'] as int?;
+        final totalPausedSeconds = state['totalPausedSeconds'] as int? ?? 0;
+        final lastPausedTimestamp = state['lastPausedTimestamp'] as int?;
+        final focusEndTimestamp = state['focusEndTimestamp'] as int?;
+        final actualFocusMinutes = state['actualFocusMinutes'] as int?;
         
         final sessionPhase = phase == 'focusing' 
             ? SessionPhase.focusing 
@@ -81,8 +95,17 @@ class TimerServiceManager {
           breakDuration: Duration(seconds: breakDurationSeconds),
           remaining: Duration(seconds: remainingSeconds),
           isPaused: isPaused,
-          sessionStartedAt: DateTime.now(),
-          totalPausedDuration: Duration.zero,
+          sessionStartedAt: sessionStartTimestamp != null 
+              ? DateTime.fromMillisecondsSinceEpoch(sessionStartTimestamp)
+              : null,
+          totalPausedDuration: Duration(seconds: totalPausedSeconds),
+          lastPausedAt: lastPausedTimestamp != null
+              ? DateTime.fromMillisecondsSinceEpoch(lastPausedTimestamp)
+              : null,
+          focusEndedAt: focusEndTimestamp != null
+              ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+              : null,
+          actualFocusMinutes: actualFocusMinutes,
         );
         
         final notifier = _ref!.read(sessionTimerProvider.notifier);
@@ -99,6 +122,9 @@ class TimerServiceManager {
     final isPaused = data['isPaused'] as bool;
     final title = data['title'] as String? ?? 'Focus Session';
     final category = data['category'] as String? ?? 'General';
+    final sessionStartTimestamp = data['sessionStartTimestamp'] as int?;
+    final totalPausedSeconds = data['totalPausedSeconds'] as int? ?? 0;
+    final lastPausedTimestamp = data['lastPausedTimestamp'] as int?;
 
     final currentState = _ref!.read(sessionTimerProvider);
     
@@ -115,6 +141,13 @@ class TimerServiceManager {
       isPaused: isPaused,
       title: title,
       category: category,
+      sessionStartedAt: sessionStartTimestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(sessionStartTimestamp)
+          : currentState.sessionStartedAt,
+      totalPausedDuration: Duration(seconds: totalPausedSeconds),
+      lastPausedAt: lastPausedTimestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(lastPausedTimestamp)
+          : null,
     ));
   }
 
@@ -123,20 +156,36 @@ class TimerServiceManager {
 
     final phase = data['phase'] as String;
     final remainingSeconds = data['remainingSeconds'] as int? ?? 0;
+    final focusEndTimestamp = data['focusEndTimestamp'] as int?;
+    final actualFocusMinutes = data['actualFocusMinutes'] as int?;
 
     final currentState = _ref!.read(sessionTimerProvider);
     final notifier = _ref!.read(sessionTimerProvider.notifier);
     
     if (phase == 'onBreak') {
+      // ✅ Focus phase completed, preserve focus data
       notifier.updateStateFromService(currentState.copyWith(
         phase: SessionPhase.onBreak,
         remaining: Duration(seconds: remainingSeconds),
         isPaused: false,
+        focusEndedAt: focusEndTimestamp != null
+            ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+            : null,
+        actualFocusMinutes: actualFocusMinutes,
       ));
+      
+      print('📊 Phase changed to break - Focus time: ${actualFocusMinutes}min');
     } else if (phase == 'finished') {
+      // ✅ Session finished, preserve all focus data
       notifier.updateStateFromService(currentState.copyWith(
         phase: SessionPhase.finished,
+        focusEndedAt: focusEndTimestamp != null
+            ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+            : currentState.focusEndedAt,
+        actualFocusMinutes: actualFocusMinutes ?? currentState.actualFocusMinutes,
       ));
+      
+      print('🎉 Session finished - Actual focus: ${actualFocusMinutes ?? currentState.actualFocusMinutes}min');
     } else if (phase == 'focusing') {
       notifier.updateStateFromService(currentState.copyWith(
         phase: SessionPhase.focusing,
@@ -144,6 +193,27 @@ class TimerServiceManager {
         isPaused: false,
       ));
     }
+  }
+
+  // ✅ NEW: Handle session completed when user stops during focus
+  static void _handleSessionCompleted(Map<String, dynamic> data) {
+    if (_ref == null) return;
+
+    final focusEndTimestamp = data['focusEndTimestamp'] as int?;
+    final actualFocusMinutes = data['actualFocusMinutes'] as int?;
+
+    final currentState = _ref!.read(sessionTimerProvider);
+    final notifier = _ref!.read(sessionTimerProvider.notifier);
+
+    notifier.updateStateFromService(currentState.copyWith(
+      phase: SessionPhase.finished,
+      focusEndedAt: focusEndTimestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+          : null,
+      actualFocusMinutes: actualFocusMinutes,
+    ));
+
+    print('⏹️ Session stopped - Actual focus: ${actualFocusMinutes}min');
   }
 
   static Future<void> startTimer({
@@ -203,6 +273,7 @@ class TimerServiceManager {
     _timerUpdateSub?.cancel();
     _phaseChangedSub?.cancel();
     _serviceReadySub?.cancel();
+    _sessionCompletedSub?.cancel();
     _isListening = false;
   }
 }

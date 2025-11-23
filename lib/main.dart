@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/providers/shared_prefs_provider.dart';
+import 'package:lockin_app/providers/theme_provider.dart';
 import 'package:lockin_app/routes/app_routes.dart';
 import 'package:lockin_app/services/notification_services.dart';
 import 'package:lockin_app/services/timer_background_service.dart';
@@ -50,6 +51,7 @@ class _LockInAppState extends ConsumerState<LockInApp> {
   @override
   Widget build(BuildContext context) {
     final prefsAsync = ref.watch(sharedPrefsProvider);
+    final themeMode = ref.watch(themeModeProvider);
     ref.read(sessionSaveListenerProvider);
 
     return prefsAsync.when(
@@ -60,13 +62,24 @@ class _LockInAppState extends ConsumerState<LockInApp> {
         return MaterialApp.router(
           title: 'Lock In',
           debugShowCheckedModeBanner: false,
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: themeMode,
           routerConfig: router,
         );
       },
-      loading: () => const MaterialApp(
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: darkTheme,
+        darkTheme: darkTheme,
+        themeMode: themeMode,
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
       error: (e, _) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: darkTheme,
+        darkTheme: darkTheme,
+        themeMode: themeMode,
         home: Scaffold(
           body: Center(child: Text('Error loading preferences: $e')),
         ),

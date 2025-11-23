@@ -56,8 +56,19 @@ class SessionSummaryPage extends ConsumerWidget {
     final content = getMotivationalContent(minutes);
     final formattedTime = formatDuration(focusDuration);
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withOpacity(0.7);
+    final cardColor =
+        Theme.of(context).cardTheme.color ??
+        Theme.of(context).colorScheme.surface;
+    final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[200]!;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: backgroundColor,
       body: SafeArea(
         child: Center(
           child: TweenAnimationBuilder<double>(
@@ -104,10 +115,10 @@ class SessionSummaryPage extends ConsumerWidget {
                   // Title
                   Text(
                     content['title']!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: textColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -120,15 +131,18 @@ class SessionSummaryPage extends ConsumerWidget {
                       vertical: 20,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cardColor,
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                      border: Border.all(color: borderColor),
+                      boxShadow: isDark
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
                     child: Column(
                       children: [
@@ -136,7 +150,7 @@ class SessionSummaryPage extends ConsumerWidget {
                           'Focus Time',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.grey[600],
+                            color: subtextColor,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 1,
                           ),
@@ -147,7 +161,7 @@ class SessionSummaryPage extends ConsumerWidget {
                           style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w300,
-                            color: Colors.deepOrange[600],
+                            color: Colors.deepOrange[isDark ? 400 : 600],
                             letterSpacing: 2,
                           ),
                         ),
@@ -163,7 +177,7 @@ class SessionSummaryPage extends ConsumerWidget {
                       content['message']!,
                       style: TextStyle(
                         fontSize: 16,
-                        color: Colors.grey[700],
+                        color: subtextColor,
                         height: 1.5,
                       ),
                       textAlign: TextAlign.center,
@@ -176,12 +190,14 @@ class SessionSummaryPage extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _buildStatBadge(
+                        context,
                         icon: Icons.timer_outlined,
                         label: 'Minutes',
                         value: minutes.toString(),
                       ),
                       const SizedBox(width: 20),
                       _buildStatBadge(
+                        context,
                         icon: Icons.trending_up,
                         label: 'Streak',
                         value: '+1',
@@ -229,17 +245,28 @@ class SessionSummaryPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatBadge({
+  Widget _buildStatBadge(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor =
+        Theme.of(context).cardTheme.color ??
+        Theme.of(context).colorScheme.surface;
+    final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[200]!;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.6);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         children: [
@@ -247,10 +274,10 @@ class SessionSummaryPage extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 4),
@@ -258,7 +285,7 @@ class SessionSummaryPage extends ConsumerWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: Colors.grey[600],
+              color: subtextColor,
               fontWeight: FontWeight.w500,
             ),
           ),

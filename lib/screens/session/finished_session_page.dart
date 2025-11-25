@@ -3,17 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class SessionSummaryPage extends ConsumerWidget {
-  final String durationSeconds;
+  final String durationMinutes; // Changed from durationSeconds to be clear
 
-  const SessionSummaryPage({super.key, required this.durationSeconds});
+  const SessionSummaryPage({super.key, required this.durationMinutes});
 
-  String formatDuration(Duration d) {
-    final hours = d.inHours;
-    final minutes = d.inMinutes.remainder(60);
+  String formatDuration(int minutes) {
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
     if (hours > 0) {
-      return '${hours}h ${minutes}m';
+      return '${hours}h ${mins}m';
     } else {
-      return '${minutes}m';
+      return '${mins}m';
     }
   }
 
@@ -51,10 +51,10 @@ class SessionSummaryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final focusDuration = Duration(seconds: int.tryParse(durationSeconds) ?? 0);
-    final minutes = focusDuration.inMinutes;
+    // Parse as MINUTES (not seconds)
+    final minutes = int.tryParse(durationMinutes) ?? 0;
     final content = getMotivationalContent(minutes);
-    final formattedTime = formatDuration(focusDuration);
+    final formattedTime = formatDuration(minutes);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
@@ -98,7 +98,7 @@ class SessionSummaryPage extends ConsumerWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.3),
+                          color: Colors.green.withOpacity(0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -138,7 +138,7 @@ class SessionSummaryPage extends ConsumerWidget {
                           ? []
                           : [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
+                                color: Colors.black.withOpacity(0.08),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -259,7 +259,7 @@ class SessionSummaryPage extends ConsumerWidget {
     final textColor = Theme.of(context).colorScheme.onSurface;
     final subtextColor = Theme.of(
       context,
-    ).colorScheme.onSurface.withValues(alpha: 0.6);
+    ).colorScheme.onSurface.withOpacity(0.6);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),

@@ -14,7 +14,7 @@ class SessionTimerState {
   final DateTime? lastPausedAt;
   final Duration totalPausedDuration;
   
-  // ✅ NEW: Track when focus phase ended and actual focus minutes
+  // Focus completion tracking
   final DateTime? focusEndedAt;
   final int? actualFocusMinutes;
 
@@ -76,6 +76,24 @@ class SessionTimerState {
     }
     
     return elapsed - paused;
+  }
+
+  /// Get the focus time to display/save (ONLY focus phase, no break time)
+  /// This should be used when navigating to finished page or saving sessions
+  int get displayFocusMinutes {
+    // Priority 1: Use actualFocusMinutes if set by background service
+    if (actualFocusMinutes != null) {
+      return actualFocusMinutes!;
+    }
+    
+    // Priority 2: Calculate from actual elapsed time (for running sessions)
+    // Only count time if we're in focusing phase or have completed focus
+    if (phase == SessionPhase.focusing || focusEndedAt != null) {
+      return actualElapsedTime.inMinutes;
+    }
+    
+    // Priority 3: Fallback to 0 if no focus has occurred
+    return 0;
   }
 
   /// Check if timer is active (focusing or on break, not paused)

@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/model/session_model.dart';
 import 'package:lockin_app/model/session_timer_model.dart';
@@ -28,7 +29,7 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
   Future<List<SessionModel>> build() async {
     _sessionRepo = ref.read(sessionRepositoryProvider);
     _statsRepo = ref.read(statsRepositoryProvider);
-    
+
     // ✅ Initialize with current user's sessions
     final userAsync = ref.read(currentUserProvider);
     if (userAsync.value != null && userAsync.value!.userId != null) {
@@ -36,7 +37,7 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       final sessions = await _sessionRepo.getSessionsByUser(_userId!);
       return sessions;
     }
-    
+
     return [];
   }
 
@@ -97,30 +98,32 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       final now = DateTime.now();
       final date = now.toIso8601String().split('T').first;
 
-      // ✅ CRITICAL FIX: Calculate actual focus time (excluding pauses)
-      final actualFocusTime = _calculateActualFocusTime(completedTimer);
-      final actualFocusMinutes = actualFocusTime.inMinutes;
-
-      print('💾 Saving session:');
-      print('   Planned duration: ${completedTimer.focusDuration.inMinutes}min');
-      print('   Actual focus time: ${actualFocusMinutes}min');
-      print('   Total paused: ${completedTimer.totalPausedDuration.inMinutes}min');
+      // ✅ Use the actualFocusMinutes already calculated by background service
+      final actualFocusMinutes = completedTimer.actualFocusMinutes ?? 0;
+      debugPrint("session provider - actualFocusMinutes: $actualFocusMinutes");
 
       // Don't save sessions with 0 minutes
       if (actualFocusMinutes <= 0) {
-        print('⚠️  Session not saved: 0 minutes focused');
         return;
       }
+
+      // Use focusEndedAt if available, otherwise use sessionStartedAt + actual focus time
+      final startTime =
+          completedTimer.sessionStartedAt?.toIso8601String() ??
+          now.subtract(Duration(minutes: actualFocusMinutes)).toIso8601String();
+      final endTime =
+          completedTimer.focusEndedAt?.toIso8601String() ??
+          now.toIso8601String();
 
       final session = SessionModel(
         userId: user.userId!,
         title: completedTimer.title ?? 'Focus Session',
         category: completedTimer.category ?? 'General',
-        focusMinutes: actualFocusMinutes, // ✅ Use actual focus time, not planned duration
+        focusMinutes:
+            actualFocusMinutes, // ✅ Use pre-calculated actual focus time
         date: date,
-        startTime: completedTimer.sessionStartedAt?.toIso8601String() ?? 
-                   now.subtract(actualFocusTime).toIso8601String(),
-        endTime: now.toIso8601String(),
+        startTime: startTime,
+        endTime: endTime,
         lastUpdated: now.millisecondsSinceEpoch,
       );
 
@@ -132,32 +135,12 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       // ✅ Always set _userId and reload sessions
       _userId = user.userId!;
       await loadUserSessions(_userId!);
-      
+
       print('✅ Session saved successfully');
     } catch (e, stack) {
       print('❌ Error saving session: $e');
       state = AsyncError(e, stack);
     }
-  }
-
-  /// Calculate actual focus time (excluding pauses)
-  Duration _calculateActualFocusTime(SessionTimerState timerState) {
-    if (timerState.sessionStartedAt == null) {
-      return Duration.zero;
-    }
-
-    final elapsed = DateTime.now().difference(timerState.sessionStartedAt!);
-    var totalPaused = timerState.totalPausedDuration;
-
-    // If currently paused, add the current pause duration
-    if (timerState.isPaused && timerState.lastPausedAt != null) {
-      totalPaused += DateTime.now().difference(timerState.lastPausedAt!);
-    }
-
-    final actualFocusTime = elapsed - totalPaused;
-    
-    // Ensure we don't return negative duration
-    return actualFocusTime.isNegative ? Duration.zero : actualFocusTime;
   }
 
   /// Helper to recalculate all stats for a given date

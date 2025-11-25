@@ -132,12 +132,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (context, state) => const SignInScreen(),
       ),
+      // Updated route parameter name to reflect it's MINUTES not seconds
       GoRoute(
-        path: '/finished/:durationSeconds',
+        path: '/finished/:durationMinutes',
         builder: (context, state) {
-          final durationSeconds =
-              state.pathParameters['durationSeconds'] ?? '0';
-          return SessionSummaryPage(durationSeconds: durationSeconds);
+          final durationMinutes =
+              state.pathParameters['durationMinutes'] ?? '0';
+          return SessionSummaryPage(durationMinutes: durationMinutes);
         },
       ),
       GoRoute(path: '/session', builder: (_, __) => const SessionPage()),

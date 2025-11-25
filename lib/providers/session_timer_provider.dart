@@ -96,12 +96,26 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
     TimerServiceManager.resumeTimer();
   }
 
-  void stopSession() {
+  /// ✅ FIXED: Don't reset to idle immediately - wait for background service
+  Future<void> stopSession() async {
     print('⏹️ [Provider] Stopping session');
-    state = const SessionTimerState(phase: SessionPhase.idle);
     
-    // Stop background service
-    TimerServiceManager.stopTimer();
+    // ✅ First, request the background service to stop and get focus data
+    await TimerServiceManager.stopTimer();
+    
+    // ✅ The service will send 'session_completed' event which will:
+    // 1. Calculate actualFocusMinutes
+    // 2. Update state to finished with the data
+    // 3. Then we can safely reset to idle
+    
+    // Give the service a moment to send the completion event
+    await Future.delayed(const Duration(milliseconds: 100));
+    
+    // ✅ Only reset to idle if we didn't receive a finished state
+    // (This handles edge cases where service was already stopped)
+    if (state.phase != SessionPhase.finished) {
+      state = const SessionTimerState(phase: SessionPhase.idle);
+    }
   }
 
   /// Get the actual time spent focusing (excluding pauses)
@@ -127,6 +141,12 @@ class SessionTimerNotifier extends Notifier<SessionTimerState> {
       }
     }
     state = newState;
+  }
+  
+  /// ✅ NEW: Allow resetting to idle (called after navigation completes)
+  void resetToIdle() {
+    print('🔄 [Provider] Resetting to idle');
+    state = const SessionTimerState(phase: SessionPhase.idle);
   }
 }
 

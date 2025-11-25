@@ -25,7 +25,6 @@ class _SessionPageState extends ConsumerState<SessionPage> {
   };
 
   final Map<String, String> durations = {
-    '1-1': '1 min focus',
     '25-5': '25 min focus',
     '30-10': '30 min focus',
     '60-15': '60 min focus',

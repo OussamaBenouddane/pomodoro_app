@@ -50,4 +50,9 @@ class UserRepository {
     final result = await dbHelper.readData('SELECT * FROM users');
     return result.map((e) => UserModel.fromMap(e)).toList();
   }
+
+  /// Clear all session and stats history for a user
+  Future<void> clearUserHistory(int userId) async {
+    await dbHelper.clearUserHistory(userId);
+  }
 }

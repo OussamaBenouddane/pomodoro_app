@@ -18,7 +18,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final currentUserAsync = ref.watch(currentUserProvider);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: currentUserAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text(e.toString())),
@@ -106,6 +106,14 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
+    final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[200]!;
+    final inputFillColor = isDark ? const Color(0xFF1F2937) : Colors.white;
+
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
@@ -117,23 +125,23 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(0.1),
+                  color: primaryColor.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.lock_person_rounded,
                   size: 48,
-                  color: Color(0xFF6366F1),
+                  color: primaryColor,
                 ),
               ),
               const SizedBox(height: 32),
               
               Text(
                 widget.isLoginMode ? 'Welcome Back' : 'Create Account',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
+                  color: textColor,
                 ),
               ),
               const SizedBox(height: 8),
@@ -143,7 +151,7 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                     : 'Start your productivity journey',
                 style: TextStyle(
                   fontSize: 15,
-                  color: Colors.grey[600],
+                  color: subtextColor,
                 ),
               ),
               const SizedBox(height: 40),
@@ -152,9 +160,9 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey[200]!),
+                  border: Border.all(color: borderColor),
                 ),
                 child: Form(
                   key: _formKey,
@@ -163,7 +171,15 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                       if (!widget.isLoginMode) ...[
                         TextFormField(
                           controller: _nameCtrl,
-                          decoration: _inputDecoration('Name', Icons.person_outline),
+                          style: TextStyle(color: textColor),
+                          decoration: _inputDecoration(
+                            'Name', 
+                            Icons.person_outline,
+                            inputFillColor,
+                            borderColor,
+                            primaryColor,
+                            subtextColor,
+                          ),
                           validator: (v) => v!.isEmpty ? 'Enter your name' : null,
                         ),
                         const SizedBox(height: 16),
@@ -171,7 +187,15 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                       
                       TextFormField(
                         controller: _emailCtrl,
-                        decoration: _inputDecoration('Email', Icons.email_outlined),
+                        style: TextStyle(color: textColor),
+                        decoration: _inputDecoration(
+                          'Email', 
+                          Icons.email_outlined,
+                          inputFillColor,
+                          borderColor,
+                          primaryColor,
+                          subtextColor,
+                        ),
                         validator: (v) => v!.isEmpty ? 'Enter email' : null,
                       ),
                       const SizedBox(height: 16),
@@ -179,7 +203,15 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                       TextFormField(
                         controller: _passwordCtrl,
                         obscureText: true,
-                        decoration: _inputDecoration('Password', Icons.lock_outline),
+                        style: TextStyle(color: textColor),
+                        decoration: _inputDecoration(
+                          'Password', 
+                          Icons.lock_outline,
+                          inputFillColor,
+                          borderColor,
+                          primaryColor,
+                          subtextColor,
+                        ),
                         validator: (v) => v!.isEmpty ? 'Enter password' : null,
                       ),
                       
@@ -220,14 +252,14 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _handleAuth,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6366F1),
+                            backgroundColor: primaryColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            disabledBackgroundColor: Colors.grey[300],
+                            disabledBackgroundColor: subtextColor.withOpacity(0.3),
                           ),
                           child: _isLoading
                               ? const SizedBox(
@@ -262,7 +294,7 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                         ? "Don't have an account?"
                         : 'Already have an account?',
                     style: TextStyle(
-                      color: Colors.grey[600],
+                      color: subtextColor,
                       fontSize: 15,
                     ),
                   ),
@@ -270,8 +302,8 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
                     onPressed: widget.onToggleMode,
                     child: Text(
                       widget.isLoginMode ? 'Sign Up' : 'Sign In',
-                      style: const TextStyle(
-                        color: Color(0xFF6366F1),
+                      style: TextStyle(
+                        color: primaryColor,
                         fontWeight: FontWeight.w600,
                         fontSize: 15,
                       ),
@@ -286,24 +318,31 @@ class _AuthFormState extends ConsumerState<_AuthForm> {
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  InputDecoration _inputDecoration(
+    String label, 
+    IconData icon,
+    Color fillColor,
+    Color borderColor,
+    Color primaryColor,
+    Color labelColor,
+  ) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: Colors.grey[600]),
-      prefixIcon: Icon(icon, color: Colors.grey[500], size: 22),
+      labelStyle: TextStyle(color: labelColor),
+      prefixIcon: Icon(icon, color: labelColor, size: 22),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: fillColor,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[300]!),
+        borderSide: BorderSide(color: borderColor),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey[300]!),
+        borderSide: BorderSide(color: borderColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
+        borderSide: BorderSide(color: primaryColor, width: 2),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),

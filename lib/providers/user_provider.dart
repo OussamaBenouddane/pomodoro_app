@@ -104,6 +104,14 @@ class CurrentUserNotifier extends AsyncNotifier<UserModel?> {
     await _userRepository.updateUser(updated);
     state = AsyncData(updated);
   }
+
+  /// Clear all session and stats history for the current user
+  Future<void> clearHistory() async {
+    final current = state.asData?.value;
+    if (current == null || current.userId == null) return;
+
+    await _userRepository.clearUserHistory(current.userId!);
+  }
 }
 
 /// Global provider

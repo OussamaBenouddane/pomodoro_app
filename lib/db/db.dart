@@ -1,7 +1,5 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import 'dart:convert';
-import 'package:flutter/services.dart';
 
 class DBHelper {
   static Database? _db;
@@ -26,7 +24,7 @@ class DBHelper {
     );
   }
 
-  /// Create tables and insert dummy data
+  /// Create tables
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE users (
@@ -98,61 +96,7 @@ class DBHelper {
       )
     ''');
 
-    // Insert dummy data
-    await _insertDummyData(db);
-  }
-
-  /// Insert dummy data from JSON file
-  Future<void> _insertDummyData(Database db) async {
-    try {
-      // Load the JSON file from assets
-      final String jsonString = await rootBundle.loadString('assets/dummy.json');
-      final Map<String, dynamic> data = json.decode(jsonString);
-
-      // Insert users
-      if (data['users'] != null) {
-        for (var user in data['users']) {
-          await db.insert('users', user);
-        }
-        print('✅ Inserted ${data['users'].length} users');
-      }
-
-      // Insert sessions
-      if (data['sessions'] != null) {
-        for (var session in data['sessions']) {
-          await db.insert('sessions', session);
-        }
-        print('✅ Inserted ${data['sessions'].length} sessions');
-      }
-
-      // Insert hour_stats
-      if (data['hour_stats'] != null) {
-        for (var stat in data['hour_stats']) {
-          await db.insert('hour_stats', stat);
-        }
-        print('✅ Inserted ${data['hour_stats'].length} hour stats');
-      }
-
-      // Insert day_stats
-      if (data['day_stats'] != null) {
-        for (var stat in data['day_stats']) {
-          await db.insert('day_stats', stat);
-        }
-        print('✅ Inserted ${data['day_stats'].length} day stats');
-      }
-
-      // Insert week_stats
-      if (data['week_stats'] != null) {
-        for (var stat in data['week_stats']) {
-          await db.insert('week_stats', stat);
-        }
-        print('✅ Inserted ${data['week_stats'].length} week stats');
-      }
-
-      print('🎉 Dummy data inserted successfully!');
-    } catch (e) {
-      print('❌ Error inserting dummy data: $e');
-    }
+    print('✅ Database tables created successfully');
   }
 
   /// Handle database upgrades
@@ -278,12 +222,24 @@ class DBHelper {
 
   /// Delete helper
   Future<int> deleteData(
-    String table, String s, List<int> list, {
-    String? whereClause,
-    List<dynamic>? whereArgs,
-  }) async {
+    String table,
+    String whereClause,
+    List<dynamic> whereArgs,
+  ) async {
     final myDb = await db;
     return await myDb.delete(table, where: whereClause, whereArgs: whereArgs);
+  }
+
+  /// Clear all session and stats data for a specific user
+  Future<void> clearUserHistory(int userId) async {
+    final myDb = await db;
+    await myDb.transaction((txn) async {
+      await txn.delete('sessions', where: 'user_id = ?', whereArgs: [userId]);
+      await txn.delete('hour_stats', where: 'user_id = ?', whereArgs: [userId]);
+      await txn.delete('day_stats', where: 'user_id = ?', whereArgs: [userId]);
+      await txn.delete('week_stats', where: 'user_id = ?', whereArgs: [userId]);
+    });
+    print('✅ Cleared all history for user $userId');
   }
 
   /// Delete entire DB (useful for testing or reset)
@@ -300,33 +256,5 @@ class DBHelper {
   ) async {
     final myDb = await db;
     return await myDb.rawQuery(sql, args);
-  }
-
-  /// Debug: Print all data from one or all tables
-  Future<void> printAllData({String? tableName}) async {
-    final myDb = await db;
-
-    Future<void> printTable(String name) async {
-      try {
-        final data = await myDb.query(name);
-        print('\n📊 Table: $name (${data.length} rows)');
-        for (var row in data) {
-          print(row);
-        }
-      } catch (e) {
-        print('⚠️ Error reading table $name: $e');
-      }
-    }
-
-    if (tableName != null) {
-      await printTable(tableName);
-    } else {
-      // Print all main tables
-      await printTable('users');
-      await printTable('sessions');
-      await printTable('hour_stats');
-      await printTable('day_stats');
-      await printTable('week_stats');
-    }
   }
 }

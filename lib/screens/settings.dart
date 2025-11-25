@@ -114,63 +114,6 @@ class SettingsScreen extends ConsumerWidget {
                       ],
                     ),
 
-                    // Focus Settings Section
-                    _buildSection(
-                      context: context,
-                      title: 'Focus Settings',
-                      children: [
-                        _buildNavigationTile(
-                          context: context,
-                          icon: Icons.timer_outlined,
-                          title: 'Default Session Duration',
-                          subtitle: '25 minutes',
-                          onTap: () => _showDurationDialog(context),
-                        ),
-                        _buildNavigationTile(
-                          context: context,
-                          icon: Icons.coffee_outlined,
-                          title: 'Default Break Duration',
-                          subtitle: '5 minutes',
-                          onTap: () => _showDurationDialog(context),
-                        ),
-                        _buildNavigationTile(
-                          context: context,
-                          icon: Icons.flag_outlined,
-                          title: 'Daily Goal',
-                          subtitle: '${user.goalMinutes} minutes',
-                          onTap: () => _showGoalDialog(context, ref, user.goalMinutes!),
-                        ),
-                      ],
-                    ),
-
-                    // Notifications Section
-                    _buildSection(
-                      context: context,
-                      title: 'Notifications',
-                      children: [
-                        _buildSwitchTile(
-                          context: context,
-                          icon: Icons.notifications_outlined,
-                          title: 'Push Notifications',
-                          subtitle: 'Get reminded about your sessions',
-                          value: true,
-                          onChanged: (value) {
-                            // TODO: Implement notifications toggle
-                          },
-                        ),
-                        _buildSwitchTile(
-                          context: context,
-                          icon: Icons.vibration,
-                          title: 'Vibration',
-                          subtitle: 'Vibrate on session completion',
-                          value: true,
-                          onChanged: (value) {
-                            // TODO: Implement vibration toggle
-                          },
-                        ),
-                      ],
-                    ),
-
                     // Data & Privacy Section
                     _buildSection(
                       context: context,
@@ -178,62 +121,11 @@ class SettingsScreen extends ConsumerWidget {
                       children: [
                         _buildNavigationTile(
                           context: context,
-                          icon: Icons.download_outlined,
-                          title: 'Export Data',
-                          subtitle: 'Download your session history',
-                          onTap: () {
-                            // TODO: Implement data export
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Data export coming soon'),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        _buildNavigationTile(
-                          context: context,
                           icon: Icons.delete_outline,
                           title: 'Clear History',
                           subtitle: 'Delete all session data',
-                          onTap: () => _showClearHistoryDialog(context),
+                          onTap: () => _showClearHistoryDialog(context, ref),
                           isDestructive: true,
-                        ),
-                      ],
-                    ),
-
-                    // About Section
-                    _buildSection(
-                      context: context,
-                      title: 'About',
-                      children: [
-                        _buildNavigationTile(
-                          context: context,
-                          icon: Icons.info_outline,
-                          title: 'App Version',
-                          subtitle: '1.0.0',
-                          onTap: () {},
-                        ),
-                        _buildNavigationTile(
-                          context: context,
-                          icon: Icons.help_outline,
-                          title: 'Help & Support',
-                          subtitle: 'FAQs and contact us',
-                          onTap: () {
-                            // TODO: Navigate to help screen
-                          },
-                        ),
-                        _buildNavigationTile(
-                          context: context,
-                          icon: Icons.privacy_tip_outlined,
-                          title: 'Privacy Policy',
-                          subtitle: 'How we handle your data',
-                          onTap: () {
-                            // TODO: Navigate to privacy policy
-                          },
                         ),
                       ],
                     ),
@@ -455,9 +347,13 @@ class SettingsScreen extends ConsumerWidget {
             ),
             onPressed: () async {
               Navigator.pop(ctx);
+              
+              // Call logout on the user provider
               await ref.read(currentUserProvider.notifier).logout();
+              
+              // Navigate to login page
               if (context.mounted) {
-                context.go('/signin');
+                context.go('/login');
               }
             },
             child: const Text('Log Out'),
@@ -467,104 +363,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showGoalDialog(BuildContext context, WidgetRef ref, int currentGoal) {
-    final controller = TextEditingController(text: currentGoal.toString());
-    final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
-    final textColor = Theme.of(context).colorScheme.onSurface;
-    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    final borderColor = Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF374151)
-        : Colors.grey[300]!;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        backgroundColor: cardColor,
-        title: Text(
-          'Daily Goal',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          style: TextStyle(color: textColor),
-          decoration: InputDecoration(
-            labelText: 'Minutes per day',
-            labelStyle: TextStyle(color: subtextColor),
-            suffixText: 'min',
-            suffixStyle: TextStyle(color: subtextColor),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: borderColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: primaryColor,
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: subtextColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () {
-              final newGoal = int.tryParse(controller.text);
-              if (newGoal != null && newGoal > 0) {
-                ref.read(currentUserProvider.notifier).updateGoal(newGoal);
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDurationDialog(BuildContext context) {
-    // TODO: Implement duration picker
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Duration settings coming soon'),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  void _showClearHistoryDialog(BuildContext context) {
+  void _showClearHistoryDialog(BuildContext context, WidgetRef ref) {
     final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
     final textColor = Theme.of(context).colorScheme.onSurface;
     final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
@@ -610,19 +409,24 @@ class SettingsScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onPressed: () {
-              // TODO: Implement clear history
+            onPressed: () async {
+              // Clear history using the provider
+              await ref.read(currentUserProvider.notifier).clearHistory();
+              
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('History cleared'),
-                  backgroundColor: Colors.green[600],
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('History cleared successfully'),
+                    backgroundColor: Colors.green[600],
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                ),
-              );
+                );
+              }
             },
             child: const Text('Clear All'),
           ),

@@ -51,13 +51,13 @@ class _LockInAppState extends ConsumerState<LockInApp> {
   @override
   Widget build(BuildContext context) {
     final prefsAsync = ref.watch(sharedPrefsProvider);
-    final themeMode = ref.watch(themeModeProvider);
-    ref.read(sessionSaveListenerProvider);
 
     return prefsAsync.when(
       data: (_) {
-        // Once SharedPreferences is ready, we can safely build the router
+        // Once SharedPreferences is ready, we can safely access theme and router
+        final themeMode = ref.watch(themeModeProvider);
         final router = ref.watch(goRouterProvider);
+        ref.read(sessionSaveListenerProvider);
 
         return MaterialApp.router(
           title: 'Lock In',
@@ -70,16 +70,16 @@ class _LockInAppState extends ConsumerState<LockInApp> {
       },
       loading: () => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: darkTheme,
+        theme: lightTheme,
         darkTheme: darkTheme,
-        themeMode: themeMode,
+        themeMode: ThemeMode.system, // Use system theme as default
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       ),
       error: (e, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: darkTheme,
+        theme: lightTheme,
         darkTheme: darkTheme,
-        themeMode: themeMode,
+        themeMode: ThemeMode.system, // Use system theme as default
         home: Scaffold(
           body: Center(child: Text('Error loading preferences: $e')),
         ),

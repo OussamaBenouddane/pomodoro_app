@@ -9,6 +9,8 @@ class OnboardingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentPage = ref.watch(onboardingControllerProvider);
     final controller = ref.read(onboardingControllerProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
 
     final pages = [
       _OnboardingPage(
@@ -32,7 +34,7 @@ class OnboardingScreen extends ConsumerWidget {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -61,7 +63,9 @@ class OnboardingScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: currentPage == index
                               ? pages[currentPage].accentColor
-                              : Colors.grey[300],
+                              : isDark 
+                                  ? Colors.grey[700] 
+                                  : Colors.grey[300],
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -105,7 +109,7 @@ class OnboardingScreen extends ConsumerWidget {
                       child: Text(
                         'Skip',
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: subtextColor,
                           fontSize: 15,
                         ),
                       ),
@@ -136,6 +140,9 @@ class _OnboardingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+
     return Padding(
       padding: const EdgeInsets.all(40),
       child: Column(
@@ -156,10 +163,10 @@ class _OnboardingPage extends StatelessWidget {
           const SizedBox(height: 48),
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
+              color: textColor,
             ),
             textAlign: TextAlign.center,
           ),
@@ -168,7 +175,7 @@ class _OnboardingPage extends StatelessWidget {
             description,
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey[600],
+              color: subtextColor,
               height: 1.5,
             ),
             textAlign: TextAlign.center,

@@ -393,28 +393,31 @@ class FocusPage extends ConsumerWidget {
     );
   }
 
+  // ✅ FIX 1: Await stopSession() to prevent race conditions
   Future<void> _handleSessionEnd(BuildContext context, WidgetRef ref) async {
     final timerState = ref.read(sessionTimerProvider);
     final timer = ref.read(sessionTimerProvider.notifier);
-    
+
     // Get actual focus minutes from state (set by background service)
     final focusMinutes = timerState.actualFocusMinutes ?? 0;
-    
+
     if (kDebugMode) {
       print("🎯 Ending session with focus time: $focusMinutes minutes");
       print("   Phase: ${timerState.phase}");
-      print("   Has actualFocusMinutes: ${timerState.actualFocusMinutes != null}");
+      print(
+        "   Has actualFocusMinutes: ${timerState.actualFocusMinutes != null}",
+      );
     }
 
-    // Stop the timer
-    timer.stopSession();
-    
-    // Navigate to finished page with MINUTES (not seconds)
+    // ✅ Await the stop to ensure background service completes
+    await timer.stopSession();
+
     if (context.mounted) {
       context.go('/finished/$focusMinutes');
     }
   }
 
+  // ✅ FIX 2: Remove duplicate session saving - let the listener handle it
   void _showStopConfirmation(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor =
@@ -458,9 +461,13 @@ class FocusPage extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogContext);
-              _handleSessionEnd(context, ref);
+              // ✅ Removed manual saveFinishedSession call
+              // The sessionSaveListenerProvider will handle saving automatically
+              if (context.mounted) {
+                await _handleSessionEnd(context, ref);
+              }
             },
             child: const Text('End Session'),
           ),

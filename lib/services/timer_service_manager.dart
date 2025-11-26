@@ -19,21 +19,22 @@ class TimerServiceManager {
 
   static void initialize(WidgetRef ref) {
     _ref = ref;
-    
+
     if (!_isListening) {
       _isListening = true;
-      
+
       _timerUpdateSub?.cancel();
       _phaseChangedSub?.cancel();
       _serviceReadySub?.cancel();
       _sessionCompletedSub?.cancel();
-      
+
       _serviceReadySub = _service.on('service_ready').listen((event) {
-        if (_serviceReadyCompleter != null && !_serviceReadyCompleter!.isCompleted) {
+        if (_serviceReadyCompleter != null &&
+            !_serviceReadyCompleter!.isCompleted) {
           _serviceReadyCompleter!.complete();
         }
       });
-      
+
       _timerUpdateSub = _service.on('timer_update').listen((event) {
         if (event != null) {
           _syncFromService(event);
@@ -46,7 +47,6 @@ class TimerServiceManager {
         }
       });
 
-      // ✅ NEW: Listen for session completion when user stops during focus
       _sessionCompletedSub = _service.on('session_completed').listen((event) {
         if (event != null) {
           _handleSessionCompleted(event);
@@ -65,12 +65,12 @@ class TimerServiceManager {
 
     final prefs = await SharedPreferences.getInstance();
     final stateJson = prefs.getString('timer_state');
-    
+
     if (stateJson != null) {
       final state = jsonDecode(stateJson);
       final phase = state['phase'] as String;
-      
-      if (phase == 'focusing' || phase == 'onBreak') {
+
+      if (phase == 'focusing' || phase == 'onBreak' || phase == 'finished') {
         final remainingSeconds = state['remainingSeconds'] as int;
         final title = state['title'] as String;
         final category = state['category'] as String? ?? 'General';
@@ -82,11 +82,16 @@ class TimerServiceManager {
         final lastPausedTimestamp = state['lastPausedTimestamp'] as int?;
         final focusEndTimestamp = state['focusEndTimestamp'] as int?;
         final actualFocusMinutes = state['actualFocusMinutes'] as int?;
-        
-        final sessionPhase = phase == 'focusing' 
-            ? SessionPhase.focusing 
-            : SessionPhase.onBreak;
-        
+
+        SessionPhase sessionPhase;
+        if (phase == 'focusing') {
+          sessionPhase = SessionPhase.focusing;
+        } else if (phase == 'onBreak') {
+          sessionPhase = SessionPhase.onBreak;
+        } else {
+          sessionPhase = SessionPhase.finished;
+        }
+
         final timerState = SessionTimerState(
           phase: sessionPhase,
           title: title,
@@ -95,7 +100,7 @@ class TimerServiceManager {
           breakDuration: Duration(seconds: breakDurationSeconds),
           remaining: Duration(seconds: remainingSeconds),
           isPaused: isPaused,
-          sessionStartedAt: sessionStartTimestamp != null 
+          sessionStartedAt: sessionStartTimestamp != null
               ? DateTime.fromMillisecondsSinceEpoch(sessionStartTimestamp)
               : null,
           totalPausedDuration: Duration(seconds: totalPausedSeconds),
@@ -107,7 +112,7 @@ class TimerServiceManager {
               : null,
           actualFocusMinutes: actualFocusMinutes,
         );
-        
+
         final notifier = _ref!.read(sessionTimerProvider.notifier);
         notifier.updateStateFromService(timerState);
       }
@@ -127,28 +132,35 @@ class TimerServiceManager {
     final lastPausedTimestamp = data['lastPausedTimestamp'] as int?;
 
     final currentState = _ref!.read(sessionTimerProvider);
-    
-    final sessionPhase = phase == 'focusing' 
-        ? SessionPhase.focusing 
-        : phase == 'onBreak' 
-            ? SessionPhase.onBreak
-            : SessionPhase.idle;
+
+    SessionPhase sessionPhase;
+    if (phase == 'focusing') {
+      sessionPhase = SessionPhase.focusing;
+    } else if (phase == 'onBreak') {
+      sessionPhase = SessionPhase.onBreak;
+    } else if (phase == 'finished') {
+      sessionPhase = SessionPhase.finished;
+    } else {
+      sessionPhase = SessionPhase.idle;
+    }
 
     final notifier = _ref!.read(sessionTimerProvider.notifier);
-    notifier.updateStateFromService(currentState.copyWith(
-      phase: sessionPhase,
-      remaining: Duration(seconds: remainingSeconds),
-      isPaused: isPaused,
-      title: title,
-      category: category,
-      sessionStartedAt: sessionStartTimestamp != null
-          ? DateTime.fromMillisecondsSinceEpoch(sessionStartTimestamp)
-          : currentState.sessionStartedAt,
-      totalPausedDuration: Duration(seconds: totalPausedSeconds),
-      lastPausedAt: lastPausedTimestamp != null
-          ? DateTime.fromMillisecondsSinceEpoch(lastPausedTimestamp)
-          : null,
-    ));
+    notifier.updateStateFromService(
+      currentState.copyWith(
+        phase: sessionPhase,
+        remaining: Duration(seconds: remainingSeconds),
+        isPaused: isPaused,
+        title: title,
+        category: category,
+        sessionStartedAt: sessionStartTimestamp != null
+            ? DateTime.fromMillisecondsSinceEpoch(sessionStartTimestamp)
+            : currentState.sessionStartedAt,
+        totalPausedDuration: Duration(seconds: totalPausedSeconds),
+        lastPausedAt: lastPausedTimestamp != null
+            ? DateTime.fromMillisecondsSinceEpoch(lastPausedTimestamp)
+            : null,
+      ),
+    );
   }
 
   static void _handlePhaseChange(Map<String, dynamic> data) {
@@ -161,41 +173,45 @@ class TimerServiceManager {
 
     final currentState = _ref!.read(sessionTimerProvider);
     final notifier = _ref!.read(sessionTimerProvider.notifier);
-    
+
     if (phase == 'onBreak') {
-      // ✅ Focus phase completed, preserve focus data
-      notifier.updateStateFromService(currentState.copyWith(
-        phase: SessionPhase.onBreak,
-        remaining: Duration(seconds: remainingSeconds),
-        isPaused: false,
-        focusEndedAt: focusEndTimestamp != null
-            ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
-            : null,
-        actualFocusMinutes: actualFocusMinutes,
-      ));
-      
-      print('📊 Phase changed to break - Focus time: ${actualFocusMinutes}min');
+      // Focus phase completed, preserve focus data
+      notifier.updateStateFromService(
+        currentState.copyWith(
+          phase: SessionPhase.onBreak,
+          remaining: Duration(seconds: remainingSeconds),
+          isPaused: false,
+          focusEndedAt: focusEndTimestamp != null
+              ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+              : null,
+          actualFocusMinutes: actualFocusMinutes,
+        ),
+      );
     } else if (phase == 'finished') {
-      // ✅ Session finished, preserve all focus data
-      notifier.updateStateFromService(currentState.copyWith(
-        phase: SessionPhase.finished,
-        focusEndedAt: focusEndTimestamp != null
-            ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
-            : currentState.focusEndedAt,
-        actualFocusMinutes: actualFocusMinutes ?? currentState.actualFocusMinutes,
-      ));
-      
-      print('🎉 Session finished - Actual focus: ${actualFocusMinutes ?? currentState.actualFocusMinutes}min');
+      // Session finished (either break completed or skipped)
+      notifier.updateStateFromService(
+        currentState.copyWith(
+          phase: SessionPhase.finished,
+          remaining: Duration.zero,
+          isPaused: false,
+          focusEndedAt: focusEndTimestamp != null
+              ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+              : currentState.focusEndedAt,
+          actualFocusMinutes:
+              actualFocusMinutes ?? currentState.actualFocusMinutes,
+        ),
+      );
     } else if (phase == 'focusing') {
-      notifier.updateStateFromService(currentState.copyWith(
-        phase: SessionPhase.focusing,
-        remaining: Duration(seconds: remainingSeconds),
-        isPaused: false,
-      ));
+      notifier.updateStateFromService(
+        currentState.copyWith(
+          phase: SessionPhase.focusing,
+          remaining: Duration(seconds: remainingSeconds),
+          isPaused: false,
+        ),
+      );
     }
   }
 
-  // ✅ NEW: Handle session completed when user stops during focus
   static void _handleSessionCompleted(Map<String, dynamic> data) {
     if (_ref == null) return;
 
@@ -205,15 +221,15 @@ class TimerServiceManager {
     final currentState = _ref!.read(sessionTimerProvider);
     final notifier = _ref!.read(sessionTimerProvider.notifier);
 
-    notifier.updateStateFromService(currentState.copyWith(
-      phase: SessionPhase.finished,
-      focusEndedAt: focusEndTimestamp != null
-          ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
-          : null,
-      actualFocusMinutes: actualFocusMinutes,
-    ));
-
-    print('⏹️ Session stopped - Actual focus: ${actualFocusMinutes}min');
+    notifier.updateStateFromService(
+      currentState.copyWith(
+        phase: SessionPhase.finished,
+        focusEndedAt: focusEndTimestamp != null
+            ? DateTime.fromMillisecondsSinceEpoch(focusEndTimestamp)
+            : null,
+        actualFocusMinutes: actualFocusMinutes,
+      ),
+    );
   }
 
   static Future<void> startTimer({
@@ -223,25 +239,24 @@ class TimerServiceManager {
     required Duration breakDuration,
   }) async {
     final isRunning = await _service.isRunning();
-    
+
     if (!isRunning) {
       _serviceReadyCompleter = Completer<void>();
       await _service.startService();
-      
+
       try {
         await _serviceReadyCompleter!.future.timeout(
           const Duration(seconds: 5),
-          onTimeout: () {},
         );
       } catch (e) {
-        // Continue anyway
+        // Ignore
       }
-      
+
       await Future.delayed(const Duration(milliseconds: 500));
     } else {
       await Future.delayed(const Duration(milliseconds: 300));
     }
-    
+
     _service.invoke('start_timer', {
       'title': title,
       'category': category,
@@ -258,9 +273,13 @@ class TimerServiceManager {
     _service.invoke('resume');
   }
 
+  static void skipBreak() {
+    _service.invoke('skip_break');
+  }
+
   static Future<void> stopTimer() async {
     _service.invoke('stop');
-    
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('timer_state');
   }

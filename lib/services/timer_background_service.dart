@@ -42,7 +42,8 @@ class TimerBackgroundService {
 
     final androidPlugin = flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     await androidPlugin?.createNotificationChannel(androidNotificationChannel);
     await androidPlugin?.createNotificationChannel(breakNotificationChannel);
@@ -94,15 +95,15 @@ class TimerBackgroundService {
     }
 
     final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    
+
     await flutterLocalNotificationsPlugin.initialize(
       const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
       ),
     );
-    
+
     Timer? timer;
-    
+
     int remainingSeconds = 0;
     String phase = 'idle';
     String title = 'Focus Session';
@@ -110,8 +111,8 @@ class TimerBackgroundService {
     bool isPaused = false;
     int focusDurationSeconds = 1500;
     int breakDurationSeconds = 300;
-    
-    // ✅ NEW: Track actual focus time
+
+    // Track actual focus time
     int? sessionStartTimestamp;
     int totalPausedSeconds = 0;
     int? lastPausedTimestamp;
@@ -147,10 +148,10 @@ class TimerBackgroundService {
         'actualFocusMinutes': actualFocusMinutes,
       });
     }
-    
+
     service.on('start_timer').listen((event) async {
       if (event == null) return;
-      
+
       phase = 'focusing';
       remainingSeconds = event['focusDurationSeconds'] as int;
       title = event['title'] as String;
@@ -158,19 +159,30 @@ class TimerBackgroundService {
       focusDurationSeconds = event['focusDurationSeconds'] as int;
       breakDurationSeconds = event['breakDurationSeconds'] as int;
       isPaused = false;
-      
-      // ✅ Reset tracking variables for new session
+
+      // Reset tracking variables for new session
       sessionStartTimestamp = DateTime.now().millisecondsSinceEpoch;
       totalPausedSeconds = 0;
       lastPausedTimestamp = null;
       focusEndTimestamp = null;
       actualFocusMinutes = null;
-      
-      await _saveState(prefs, remainingSeconds, phase, title, category, isPaused, 
-                       focusDurationSeconds, breakDurationSeconds,
-                       sessionStartTimestamp, totalPausedSeconds, lastPausedTimestamp,
-                       focusEndTimestamp, actualFocusMinutes);
-      
+
+      await _saveState(
+        prefs,
+        remainingSeconds,
+        phase,
+        title,
+        category,
+        isPaused,
+        focusDurationSeconds,
+        breakDurationSeconds,
+        sessionStartTimestamp,
+        totalPausedSeconds,
+        lastPausedTimestamp,
+        focusEndTimestamp,
+        actualFocusMinutes,
+      );
+
       service.invoke('timer_update', {
         'remainingSeconds': remainingSeconds,
         'phase': phase,
@@ -183,14 +195,27 @@ class TimerBackgroundService {
     });
 
     service.on('pause').listen((event) async {
+      if (phase != 'focusing' && phase != 'onBreak') return;
+
       isPaused = true;
       lastPausedTimestamp = DateTime.now().millisecondsSinceEpoch;
-      
-      await _saveState(prefs, remainingSeconds, phase, title, category, isPaused,
-                       focusDurationSeconds, breakDurationSeconds,
-                       sessionStartTimestamp, totalPausedSeconds, lastPausedTimestamp,
-                       focusEndTimestamp, actualFocusMinutes);
-      
+
+      await _saveState(
+        prefs,
+        remainingSeconds,
+        phase,
+        title,
+        category,
+        isPaused,
+        focusDurationSeconds,
+        breakDurationSeconds,
+        sessionStartTimestamp,
+        totalPausedSeconds,
+        lastPausedTimestamp,
+        focusEndTimestamp,
+        actualFocusMinutes,
+      );
+
       service.invoke('timer_update', {
         'remainingSeconds': remainingSeconds,
         'phase': phase,
@@ -202,19 +227,33 @@ class TimerBackgroundService {
     });
 
     service.on('resume').listen((event) async {
+      if (!isPaused) return;
+
       if (lastPausedTimestamp != null) {
-        final pauseDuration = DateTime.now().millisecondsSinceEpoch - lastPausedTimestamp!;
+        final pauseDuration =
+            DateTime.now().millisecondsSinceEpoch - lastPausedTimestamp!;
         totalPausedSeconds += (pauseDuration / 1000).round();
       }
-      
+
       isPaused = false;
       lastPausedTimestamp = null;
-      
-      await _saveState(prefs, remainingSeconds, phase, title, category, isPaused,
-                       focusDurationSeconds, breakDurationSeconds,
-                       sessionStartTimestamp, totalPausedSeconds, lastPausedTimestamp,
-                       focusEndTimestamp, actualFocusMinutes);
-      
+
+      await _saveState(
+        prefs,
+        remainingSeconds,
+        phase,
+        title,
+        category,
+        isPaused,
+        focusDurationSeconds,
+        breakDurationSeconds,
+        sessionStartTimestamp,
+        totalPausedSeconds,
+        lastPausedTimestamp,
+        focusEndTimestamp,
+        actualFocusMinutes,
+      );
+
       service.invoke('timer_update', {
         'remainingSeconds': remainingSeconds,
         'phase': phase,
@@ -225,31 +264,75 @@ class TimerBackgroundService {
       });
     });
 
+    // ✅ FIXED: Skip break - properly transition to finished without timer interference
+    service.on('skip_break').listen((event) async {
+      if (phase != 'onBreak') {
+        return;
+      }
+
+      // Stop the timer from running by setting phase and remaining to terminal state
+      phase = 'finished';
+      remainingSeconds = 0;
+      isPaused = false;
+
+      // Save the finished state immediately
+      await _saveState(
+        prefs,
+        0,
+        'finished',
+        title,
+        category,
+        false,
+        focusDurationSeconds,
+        breakDurationSeconds,
+        sessionStartTimestamp,
+        totalPausedSeconds,
+        null,
+        focusEndTimestamp,
+        actualFocusMinutes,
+      );
+
+      // Notify UI about completion with all focus data preserved
+      service.invoke('phase_changed', {
+        'phase': 'finished',
+        'remainingSeconds': 0,
+        'focusEndTimestamp': focusEndTimestamp,
+        'actualFocusMinutes': actualFocusMinutes,
+        'title': title,
+        'category': category,
+      });
+
+      // Show notification
+      await _showBreakCompleteNotification(
+        flutterLocalNotificationsPlugin,
+        title,
+      );
+    });
+
     service.on('stop').listen((event) async {
-      // ✅ If stopped during focus phase, calculate actual focus time
+      // If stopped during focus phase, calculate actual focus time
       if (phase == 'focusing' && sessionStartTimestamp != null) {
         final now = DateTime.now().millisecondsSinceEpoch;
         final elapsedSeconds = ((now - sessionStartTimestamp!) / 1000).round();
         var totalPaused = totalPausedSeconds;
-        
+
         // Include current pause if paused
         if (isPaused && lastPausedTimestamp != null) {
           totalPaused += ((now - lastPausedTimestamp!) / 1000).round();
         }
-        
+
         final actualFocusSeconds = elapsedSeconds - totalPaused;
         actualFocusMinutes = (actualFocusSeconds / 60).round();
         focusEndTimestamp = now;
-        
-        print('⏹️ Stopped during focus: ${actualFocusMinutes}min actual focus time');
-        
-        // Send one final update with focus data before stopping
+
+        // Send completion event with focus data
         service.invoke('session_completed', {
           'focusEndTimestamp': focusEndTimestamp,
           'actualFocusMinutes': actualFocusMinutes,
         });
       }
-      
+
+      // Clean up and stop service
       phase = 'idle';
       remainingSeconds = 0;
       isPaused = false;
@@ -263,9 +346,9 @@ class TimerBackgroundService {
       timer?.cancel();
       service.stopSelf();
     });
-    
+
     service.invoke('service_ready', {});
-    
+
     timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (service is AndroidServiceInstance) {
         if (!await service.isForegroundService()) {
@@ -273,16 +356,35 @@ class TimerBackgroundService {
         }
       }
 
-      if (isPaused || phase == 'idle') return;
+      // ✅ CRITICAL: Don't run timer logic if idle or finished
+      if (phase == 'idle' || phase == 'finished') {
+        return;
+      }
+
+      // Don't countdown if paused
+      if (isPaused) {
+        return;
+      }
 
       if (remainingSeconds > 0) {
         remainingSeconds--;
-        
+
         if (remainingSeconds % 5 == 0) {
-          await _saveState(prefs, remainingSeconds, phase, title, category, isPaused,
-                           focusDurationSeconds, breakDurationSeconds,
-                           sessionStartTimestamp, totalPausedSeconds, lastPausedTimestamp,
-                           focusEndTimestamp, actualFocusMinutes);
+          await _saveState(
+            prefs,
+            remainingSeconds,
+            phase,
+            title,
+            category,
+            isPaused,
+            focusDurationSeconds,
+            breakDurationSeconds,
+            sessionStartTimestamp,
+            totalPausedSeconds,
+            lastPausedTimestamp,
+            focusEndTimestamp,
+            actualFocusMinutes,
+          );
         }
 
         service.invoke('timer_update', {
@@ -299,38 +401,46 @@ class TimerBackgroundService {
           final timeStr = '$minutes:$seconds';
           final phaseIcon = phase == 'focusing' ? '🎯' : '☕';
           final phaseTitle = phase == 'focusing' ? 'Focus Mode' : 'Break Time';
-          final pauseText = isPaused ? ' (Paused)' : '';
-          
+
           await service.setForegroundNotificationInfo(
-            title: '$phaseIcon $phaseTitle - $timeStr$pauseText',
+            title: '$phaseIcon $phaseTitle - $timeStr',
             content: title,
           );
         }
       } else {
-        // Timer reached 0
+        // Timer reached 0 - handle phase transitions
         if (phase == 'focusing') {
-          // ✅ FOCUS PHASE COMPLETED - Calculate actual focus time
+          // Calculate actual focus time
           if (sessionStartTimestamp != null) {
             final now = DateTime.now().millisecondsSinceEpoch;
-            final elapsedSeconds = ((now - sessionStartTimestamp!) / 1000).round();
+            final elapsedSeconds = ((now - sessionStartTimestamp!) / 1000)
+                .round();
             final actualFocusSeconds = elapsedSeconds - totalPausedSeconds;
             actualFocusMinutes = (actualFocusSeconds / 60).round();
             focusEndTimestamp = now;
-            
-            print('✅ Focus completed: ${actualFocusMinutes}min actual focus time');
-            print('   Planned: ${focusDurationSeconds ~/ 60}min');
-            print('   Paused: ${totalPausedSeconds ~/ 60}min');
           }
-          
+
+          // Transition to break
           phase = 'onBreak';
           remainingSeconds = breakDurationSeconds;
           isPaused = false;
-          
-          await _saveState(prefs, remainingSeconds, phase, title, category, isPaused,
-                           focusDurationSeconds, breakDurationSeconds,
-                           sessionStartTimestamp, totalPausedSeconds, null,
-                           focusEndTimestamp, actualFocusMinutes);
-          
+
+          await _saveState(
+            prefs,
+            remainingSeconds,
+            phase,
+            title,
+            category,
+            isPaused,
+            focusDurationSeconds,
+            breakDurationSeconds,
+            sessionStartTimestamp,
+            totalPausedSeconds,
+            null,
+            focusEndTimestamp,
+            actualFocusMinutes,
+          );
+
           service.invoke('phase_changed', {
             'phase': 'onBreak',
             'remainingSeconds': remainingSeconds,
@@ -338,22 +448,37 @@ class TimerBackgroundService {
             'actualFocusMinutes': actualFocusMinutes,
           });
         } else if (phase == 'onBreak') {
-          // ✅ BREAK COMPLETED - Session finished
+          // Transition to finished
           phase = 'finished';
-          
-          await _saveState(prefs, remainingSeconds, phase, title, category, isPaused,
-                           focusDurationSeconds, breakDurationSeconds,
-                           sessionStartTimestamp, totalPausedSeconds, null,
-                           focusEndTimestamp, actualFocusMinutes);
-          
+          remainingSeconds = 0;
+
+          await _saveState(
+            prefs,
+            0,
+            'finished',
+            title,
+            category,
+            false,
+            focusDurationSeconds,
+            breakDurationSeconds,
+            sessionStartTimestamp,
+            totalPausedSeconds,
+            null,
+            focusEndTimestamp,
+            actualFocusMinutes,
+          );
+
           service.invoke('phase_changed', {
             'phase': 'finished',
             'remainingSeconds': 0,
             'focusEndTimestamp': focusEndTimestamp,
             'actualFocusMinutes': actualFocusMinutes,
           });
-          
-          await _showBreakCompleteNotification(flutterLocalNotificationsPlugin, title);
+
+          await _showBreakCompleteNotification(
+            flutterLocalNotificationsPlugin,
+            title,
+          );
         }
       }
     });
@@ -375,21 +500,24 @@ class TimerBackgroundService {
     int? focusEndTimestamp,
     int? actualFocusMinutes,
   ) async {
-    await prefs.setString('timer_state', jsonEncode({
-      'remainingSeconds': remainingSeconds,
-      'phase': phase,
-      'title': title,
-      'category': category,
-      'isPaused': isPaused,
-      'focusDurationSeconds': focusDurationSeconds,
-      'breakDurationSeconds': breakDurationSeconds,
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
-      'sessionStartTimestamp': sessionStartTimestamp,
-      'totalPausedSeconds': totalPausedSeconds,
-      'lastPausedTimestamp': lastPausedTimestamp,
-      'focusEndTimestamp': focusEndTimestamp,
-      'actualFocusMinutes': actualFocusMinutes,
-    }));
+    await prefs.setString(
+      'timer_state',
+      jsonEncode({
+        'remainingSeconds': remainingSeconds,
+        'phase': phase,
+        'title': title,
+        'category': category,
+        'isPaused': isPaused,
+        'focusDurationSeconds': focusDurationSeconds,
+        'breakDurationSeconds': breakDurationSeconds,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'sessionStartTimestamp': sessionStartTimestamp,
+        'totalPausedSeconds': totalPausedSeconds,
+        'lastPausedTimestamp': lastPausedTimestamp,
+        'focusEndTimestamp': focusEndTimestamp,
+        'actualFocusMinutes': actualFocusMinutes,
+      }),
+    );
   }
 
   @pragma('vm:entry-point')

@@ -9,8 +9,9 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<bool> initialize() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -27,35 +28,25 @@ class NotificationService {
     // Request notification permissions for Android 13+
     final androidImpl = _notifications
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     if (androidImpl != null) {
       await androidImpl.requestNotificationsPermission();
-      final exactAlarmPermission =
-          await androidImpl.requestExactAlarmsPermission();
-      debugPrint('Exact alarm permission: $exactAlarmPermission');
     }
 
-    debugPrint('Notifications initialized: $initialized');
     return initialized ?? false;
   }
 
   static Future<void> scheduleReminder(Reminder reminder) async {
     if (!reminder.isEnabled) {
-      debugPrint('Reminder disabled: ${reminder.title}');
       return;
     }
-
-    debugPrint(
-        'Scheduling reminder: ${reminder.title} for days: ${reminder.days}');
 
     for (var day in reminder.days) {
       final id = '${reminder.id}_$day'.hashCode & 0x7FFFFFFF;
 
       final scheduledDate = _getNextInstanceOfDayAndTime(day, reminder.time);
-
-      debugPrint(
-          'Scheduling notification ID: $id for ${scheduledDate.toString()}');
 
       try {
         await _notifications.zonedSchedule(
@@ -84,23 +75,16 @@ class NotificationService {
               ? DateTimeComponents.dayOfWeekAndTime
               : DateTimeComponents.time,
         );
-        debugPrint('Successfully scheduled notification ID: $id');
       } catch (e) {
-        debugPrint('Error scheduling notification: $e');
+        // Handle scheduling error
       }
-    }
-
-    // Show pending notifications for debugging
-    final pending = await _notifications.pendingNotificationRequests();
-    debugPrint('Total pending notifications: ${pending.length}');
-    for (var notif in pending) {
-      debugPrint(
-          'Pending: ID=${notif.id}, Title=${notif.title}, Body=${notif.body}');
     }
   }
 
   static tz.TZDateTime _getNextInstanceOfDayAndTime(
-      int targetDay, TimeOfDay time) {
+    int targetDay,
+    TimeOfDay time,
+  ) {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
 
     // Create a DateTime for today at the specified time
@@ -125,31 +109,18 @@ class NotificationService {
     // Convert to TZDateTime in local timezone
     final scheduledDate = tz.TZDateTime.from(baseDate, tz.local);
 
-    debugPrint('Current time: ${DateTime.now()}');
-    debugPrint('Target day: $targetDay (${_getDayName(targetDay)})');
-    debugPrint('Target time: ${time.hour}:${time.minute}');
-    debugPrint('Scheduled for: $scheduledDate (local timezone)');
-    debugPrint('Days to add: $daysToAdd');
-
     return scheduledDate;
-  }
-
-  static String _getDayName(int day) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[day - 1];
   }
 
   static Future<void> cancelReminder(String reminderId, List<int> days) async {
     for (var day in days) {
       final id = '${reminderId}_$day'.hashCode & 0x7FFFFFFF;
       await _notifications.cancel(id);
-      debugPrint('Cancelled notification ID: $id');
     }
   }
 
   // Test notification to verify setup
   static Future<void> showTestNotification() async {
-    debugPrint('Showing immediate test notification');
     await _notifications.show(
       0,
       'REMINDER',
@@ -168,10 +139,9 @@ class NotificationService {
 
   // Schedule a test notification 10 seconds from now
   static Future<void> scheduleTestNotification() async {
-    final scheduledDate =
-        tz.TZDateTime.now(tz.local).add(const Duration(seconds: 10));
-
-    debugPrint('Scheduling test notification for: $scheduledDate');
+    final scheduledDate = tz.TZDateTime.now(
+      tz.local,
+    ).add(const Duration(seconds: 10));
 
     await _notifications.zonedSchedule(
       999999,
@@ -191,7 +161,5 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
-
-    debugPrint('Test notification scheduled!');
   }
 }

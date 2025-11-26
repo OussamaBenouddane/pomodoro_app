@@ -27,7 +27,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
         );
       }
     } catch (e) {
-      print('Error loading theme mode: $e');
+      // Ignore errors
     }
   }
 
@@ -44,7 +44,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, mode.toString());
     } catch (e) {
-      print('Error saving theme mode: $e');
+      // Ignore errors
     }
   }
 }
@@ -54,8 +54,8 @@ final lightTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.light,
   colorScheme: ColorScheme.light(
-    primary: const Color(0xFF6366F1),
-    secondary: const Color(0xFF8B5CF6),
+    primary: const Color(0xFF388BC6), // Your specified blue
+    secondary: const Color(0xFF2C6B95), // Darker blue for secondary
     surface: Colors.white,
     error: Colors.red[400]!,
   ),
@@ -81,8 +81,8 @@ final darkTheme = ThemeData(
   useMaterial3: true,
   brightness: Brightness.dark,
   colorScheme: ColorScheme.dark(
-    primary: const Color(0xFF818CF8),
-    secondary: const Color(0xFFA78BFA),
+    primary: const Color(0xFF5BA3D0), // Lighter blue for dark mode
+    secondary: const Color(0xFF7BB8DD), // Even lighter blue for secondary
     surface: const Color(0xFF1F2937),
     error: Colors.red[300]!,
   ),

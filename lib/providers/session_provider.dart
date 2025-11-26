@@ -1,4 +1,3 @@
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lockin_app/model/session_model.dart';
 import 'package:lockin_app/model/session_timer_model.dart';
@@ -100,7 +99,6 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
 
       // ✅ Use the actualFocusMinutes already calculated by background service
       final actualFocusMinutes = completedTimer.actualFocusMinutes ?? 0;
-      debugPrint("session provider - actualFocusMinutes: $actualFocusMinutes");
 
       // Don't save sessions with 0 minutes
       if (actualFocusMinutes <= 0) {
@@ -135,10 +133,7 @@ class SessionNotifier extends AsyncNotifier<List<SessionModel>> {
       // ✅ Always set _userId and reload sessions
       _userId = user.userId!;
       await loadUserSessions(_userId!);
-
-      print('✅ Session saved successfully');
     } catch (e, stack) {
-      print('❌ Error saving session: $e');
       state = AsyncError(e, stack);
     }
   }

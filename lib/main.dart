@@ -11,15 +11,12 @@ import 'providers/session_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize services BEFORE running the app
-  print('🔧 Initializing services...');
   await TimerBackgroundService.initialize();
   await NotificationService.initialize();
   tz.initializeTimeZones();
-  
-  print('✅ Services initialized');
-  
+
   runApp(const ProviderScope(child: LockInApp()));
 }
 
@@ -36,9 +33,7 @@ class _LockInAppState extends ConsumerState<LockInApp> {
     super.initState();
     // Initialize timer service manager after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('🎧 Initializing TimerServiceManager...');
       TimerServiceManager.initialize(ref);
-      print('✅ TimerServiceManager initialized');
     });
   }
 
@@ -60,7 +55,7 @@ class _LockInAppState extends ConsumerState<LockInApp> {
         ref.read(sessionSaveListenerProvider);
 
         return MaterialApp.router(
-          title: 'Lock In',
+          title: 'Pomodoro Focus',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,
           darkTheme: darkTheme,

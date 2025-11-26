@@ -12,7 +12,7 @@ class StartSessionButton extends StatelessWidget {
         icon: const Icon(Icons.play_arrow_rounded, size: 28),
         label: const Text("Start a Session"),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF6366F1),
+          backgroundColor: const Color(0xFF388BC6),
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 40),

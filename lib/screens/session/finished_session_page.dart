@@ -3,9 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class SessionSummaryPage extends ConsumerWidget {
-  final String durationMinutes; // Changed from durationSeconds to be clear
+  final String durationMinutes;
+  final String? category; 
 
-  const SessionSummaryPage({super.key, required this.durationMinutes});
+  const SessionSummaryPage({
+    super.key,
+    required this.durationMinutes,
+    this.category,
+  });
+
+  // Category icons mapping
+  static const Map<String, IconData> categoryIcons = {
+    'Study': Icons.school_outlined,
+    'Work': Icons.work_outline,
+    'Exercise': Icons.fitness_center_outlined,
+    'Meditation': Icons.self_improvement_outlined,
+    'Reading': Icons.menu_book_outlined,
+    'Creative': Icons.palette_outlined,
+    'General': Icons.psychology_outlined,
+  };
 
   String formatDuration(int minutes) {
     final hours = minutes ~/ 60;
@@ -43,7 +59,7 @@ class SessionSummaryPage extends ConsumerWidget {
       };
     } else {
       return {
-        'title': 'Progress Made! 👍',
+        'title': 'Progress Made!',
         'message': 'Even short sessions add up. Keep going!',
       };
     }
@@ -66,6 +82,10 @@ class SessionSummaryPage extends ConsumerWidget {
         Theme.of(context).cardTheme.color ??
         Theme.of(context).colorScheme.surface;
     final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[200]!;
+
+    // Get category info
+    final sessionCategory = category ?? 'General';
+    final categoryIcon = categoryIcons[sessionCategory] ?? Icons.psychology_outlined;
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -191,9 +211,9 @@ class SessionSummaryPage extends ConsumerWidget {
                     children: [
                       _buildStatBadge(
                         context,
-                        icon: Icons.timer_outlined,
-                        label: 'Minutes',
-                        value: minutes.toString(),
+                        icon: categoryIcon,
+                        label: sessionCategory,
+                        value: '${minutes}m',
                       ),
                       const SizedBox(width: 20),
                       _buildStatBadge(

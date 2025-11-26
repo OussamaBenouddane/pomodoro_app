@@ -95,8 +95,6 @@ class DBHelper {
         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
       )
     ''');
-
-    print('✅ Database tables created successfully');
   }
 
   /// Handle database upgrades
@@ -239,7 +237,6 @@ class DBHelper {
       await txn.delete('day_stats', where: 'user_id = ?', whereArgs: [userId]);
       await txn.delete('week_stats', where: 'user_id = ?', whereArgs: [userId]);
     });
-    print('✅ Cleared all history for user $userId');
   }
 
   /// Delete entire DB (useful for testing or reset)

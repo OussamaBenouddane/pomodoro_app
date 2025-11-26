@@ -10,7 +10,6 @@ final homeRefreshListenerProvider = Provider((ref) {
   });
 });
 
-
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return HomeRepository(DBHelper());
 });
@@ -41,17 +40,17 @@ class HomeController extends AsyncNotifier<HomeState> {
 
   Future<HomeState> _loadHomeData(int userId) async {
     final today = DateTime.now().toIso8601String().split('T').first;
-    
+
     // Get today's stats
     final todayStats = await _repo.getDayStats(userId, today);
     final todayMinutes = todayStats?.totalFocusMinutes ?? 0;
-    
+
     // Get user's daily goal
     final goal = await _repo.getUserGoal(userId);
-    
+
     // Calculate streak
     final streak = await _repo.calculateStreak(userId);
-    
+
     // Get next reminder (if you have reminders table)
     final nextReminder = await _repo.getNextReminder(userId);
 
@@ -196,8 +195,8 @@ class HomeRepository {
         [userId, dateStr],
       );
 
-      final totalMinutes = result.isNotEmpty 
-          ? (result.first['total'] as int? ?? 0) 
+      final totalMinutes = result.isNotEmpty
+          ? (result.first['total'] as int? ?? 0)
           : 0;
 
       // Consider a day "completed" if they have any focus time
@@ -206,8 +205,8 @@ class HomeRepository {
         checkDate = checkDate.subtract(const Duration(days: 1));
       } else {
         // If today has no sessions yet, don't break the streak
-        if (checkDate.day == today.day && 
-            checkDate.month == today.month && 
+        if (checkDate.day == today.day &&
+            checkDate.month == today.month &&
             checkDate.year == today.year) {
           checkDate = checkDate.subtract(const Duration(days: 1));
           continue;
@@ -228,7 +227,7 @@ class HomeRepository {
       final tableCheck = await dbHelper.readData(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='reminders'",
       );
-      
+
       if (tableCheck.isEmpty) {
         return null; // Table doesn't exist yet
       }
@@ -245,17 +244,17 @@ class HomeRepository {
       );
 
       if (result.isEmpty) return null;
-      
+
       // Format the reminder time nicely
       final reminderTime = result.first['reminder_time'] as String?;
       if (reminderTime == null) return null;
-      
+
       try {
         final dateTime = DateTime.parse(reminderTime);
         final now = DateTime.now();
-        
-        if (dateTime.day == now.day && 
-            dateTime.month == now.month && 
+
+        if (dateTime.day == now.day &&
+            dateTime.month == now.month &&
             dateTime.year == now.year) {
           return 'Today at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
         } else {
@@ -285,7 +284,7 @@ class HomeRepository {
       final tableCheck = await dbHelper.readData(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='reminders'",
       );
-      
+
       if (tableCheck.isEmpty) {
         // Create reminders table if it doesn't exist
         await dbHelper.readData('''
@@ -300,11 +299,7 @@ class HomeRepository {
       }
 
       // Delete old reminders and insert new one
-      await dbHelper.deleteData(
-        'reminders',
-        'user_id = ?',
-        [userId],
-      );
+      await dbHelper.deleteData('reminders', 'user_id = ?', [userId]);
 
       await dbHelper.insertData('reminders', {
         'user_id': userId,
@@ -312,7 +307,7 @@ class HomeRepository {
         'created_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      print('Error updating reminder: $e');
+      // If any error occurs (table doesn't exist, etc.), just return null
     }
   }
 }

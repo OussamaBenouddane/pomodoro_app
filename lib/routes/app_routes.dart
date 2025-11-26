@@ -31,11 +31,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       timerState.phase == SessionPhase.focusing ||
       timerState.phase == SessionPhase.onBreak;
 
-  print('🚀 [Router Init] Building GoRouter');
-  print('   Onboarding seen: $hasSeenOnboarding');
-  print('   Logged in: $isLoggedIn');
-  print('   Active session: $hasActiveSession (Phase: ${timerState.phase})');
-
   // Determine initial location based on state
   String initialLocation;
   if (!hasSeenOnboarding) {
@@ -44,7 +39,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     initialLocation = '/register';
   } else if (hasActiveSession) {
     initialLocation = '/focus';
-    print('   ✅ Setting initial location to /focus due to active session');
   } else {
     initialLocation = '/home';
   }
@@ -59,17 +53,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final path = state.uri.path;
 
-      print('🔀 [Router] Redirect check: $path');
 
       // Wait until user is loaded
       if (currentUserAsync.isLoading) {
-        print('⏳ [Router] User loading, waiting...');
         return null;
       }
 
       // Priority 1: If user hasn't seen onboarding, always show it first
       if (!hasSeenOnboarding) {
-        print('👋 [Router] Onboarding not seen, redirecting to /onboarding');
         return path == '/onboarding' ? null : '/onboarding';
       }
 
@@ -77,32 +68,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (isLoggedIn) {
         // Don't allow going back to onboarding or auth screens
         if (path == '/onboarding' || path == '/register' || path == '/login') {
-          print('🔒 [Router] User logged in, blocking auth screens');
           return '/home';
         }
-        
+
         // Check if there's an active session using read (not watch)
         // This prevents circular dependency during navigation
         final timerState = ref.read(sessionTimerProvider);
         final hasActiveSession =
             timerState.phase == SessionPhase.focusing ||
             timerState.phase == SessionPhase.onBreak;
-        
-        print('📊 [Router] Timer state - Phase: ${timerState.phase}, Active: $hasActiveSession');
-        
+
+
         // Allow /session and /finished routes even during active session
         if (path == '/session' || path.startsWith('/finished')) {
-          print('✅ [Router] Allowing /session or /finished route');
           return null;
         }
-        
+
         // If there's an active session and user is not on /focus, redirect to /focus
         if (hasActiveSession && path != '/focus') {
-          print('🎯 [Router] Active session detected, redirecting to /focus from $path');
           return '/focus';
         }
-        
-        print('✅ [Router] No redirect needed');
+
         return null; // Allow access to other routes
       }
 
@@ -138,7 +124,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final durationMinutes =
               state.pathParameters['durationMinutes'] ?? '0';
-          return SessionSummaryPage(durationMinutes: durationMinutes);
+          final category = state
+              .uri
+              .queryParameters['category']; // Get category from query params
+          return SessionSummaryPage(
+            durationMinutes: durationMinutes,
+            category: category,
+          );
         },
       ),
       GoRoute(path: '/session', builder: (_, __) => const SessionPage()),

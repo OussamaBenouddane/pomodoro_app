@@ -13,7 +13,7 @@ class SessionReminderCard extends ConsumerWidget {
     
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
     final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
     final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[200]!;
     final primaryColor = Theme.of(context).colorScheme.primary;
@@ -33,7 +33,7 @@ class SessionReminderCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: primaryColor.withOpacity(0.1),
+                    color: primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -112,7 +112,7 @@ class SessionReminderCard extends ConsumerWidget {
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
     final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[200]!;
     final tileBackground = isDark ? const Color(0xFF1F2937) : Colors.grey[50];
     final primaryColor = Theme.of(context).colorScheme.primary;
@@ -149,7 +149,7 @@ class SessionReminderCard extends ConsumerWidget {
                     fontSize: 15,
                     color: reminder.isEnabled
                         ? textColor
-                        : subtextColor.withOpacity(0.7),
+                        : subtextColor.withValues(alpha: 0.7),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -157,7 +157,7 @@ class SessionReminderCard extends ConsumerWidget {
                   '${reminder.timeString} • ${reminder.dayString}',
                   style: TextStyle(
                     fontSize: 13,
-                    color: reminder.isEnabled ? subtextColor : subtextColor.withOpacity(0.6),
+                    color: reminder.isEnabled ? subtextColor : subtextColor.withValues(alpha: 0.6),
                   ),
                 ),
                 if (reminder.isRepeating) ...[
@@ -167,14 +167,14 @@ class SessionReminderCard extends ConsumerWidget {
                       Icon(
                         Icons.repeat,
                         size: 14,
-                        color: subtextColor.withOpacity(0.8),
+                        color: subtextColor.withValues(alpha: 0.8),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         'Repeating',
                         style: TextStyle(
                           fontSize: 12,
-                          color: subtextColor.withOpacity(0.8),
+                          color: subtextColor.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
@@ -225,7 +225,7 @@ class SessionReminderCard extends ConsumerWidget {
           final isDark = Theme.of(context).brightness == Brightness.dark;
           final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
           final textColor = Theme.of(context).colorScheme.onSurface;
-          final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+          final subtextColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
           final borderColor = isDark ? const Color(0xFF374151) : Colors.grey[300]!;
           final primaryColor = Theme.of(context).colorScheme.primary;
           final chipBackground = isDark ? const Color(0xFF1F2937) : Colors.grey[100]!;
@@ -292,7 +292,7 @@ class SessionReminderCard extends ConsumerWidget {
                             labelText: 'Title',
                             hintText: 'e.g., Study Session',
                             labelStyle: TextStyle(color: subtextColor),
-                            hintStyle: TextStyle(color: subtextColor.withOpacity(0.6)),
+                            hintStyle: TextStyle(color: subtextColor.withValues(alpha: 0.6)),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(color: borderColor),
@@ -399,7 +399,7 @@ class SessionReminderCard extends ConsumerWidget {
                               FilterChip(
                                 label: Text(_getDayName(i)),
                                 selected: selectedDays.contains(i),
-                                selectedColor: primaryColor.withOpacity(0.2),
+                                selectedColor: primaryColor.withValues(alpha: 0.2),
                                 checkmarkColor: primaryColor,
                                 backgroundColor: chipBackground,
                                 side: BorderSide(
@@ -518,7 +518,7 @@ class SessionReminderCard extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = Theme.of(context).cardTheme.color ?? Theme.of(context).colorScheme.surface;
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final subtextColor = Theme.of(context).colorScheme.onSurface.withOpacity(0.6);
+    final subtextColor = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6);
 
     final confirmed = await showDialog<bool>(
       context: context,
